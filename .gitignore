@@ -4,6 +4,10 @@ build/
 !**/src/**/build/
 **/build/
 
+# IDE compiled output (Eclipse/IntelliJ bin dirs)
+**/bin/
+!**/src/**/bin/
+
 # Java
 *.class
 *.jar
