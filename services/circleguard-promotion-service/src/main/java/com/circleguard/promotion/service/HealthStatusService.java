@@ -54,44 +54,58 @@ public class HealthStatusService {
         
         long threshold = System.currentTimeMillis() - ((long)settings.getEncounterWindowDays() * 24 * 60 * 60 * 1000);
 
-        // Robust Multi-Tier High-Confidence Propagation Cypher - Augmented with isValid checks and timing
-        String unifiedQuery = 
-            "MATCH (source:User {anonymousId: $id}) " +
-            "SET source.status = $status, source.statusUpdatedAt = timestamp() " +
-            "WITH source " +
-            "OPTIONAL MATCH (source)-[r1]-(c1:User) " +
-            "WHERE ( " +
-            "  (type(r1)='ENCOUNTERED' AND coalesce(r1.isValid, true) AND r1.startTime > $threshold) OR " +
-            "  (type(r1)='MEMBER_OF' AND EXISTS { MATCH (source)-[:MEMBER_OF]->(circ:Circle)<-[:MEMBER_OF]-(c1) WHERE coalesce(circ.isValid, true) }) " +
-            ") " +
-            "  AND c1.status <> 'CONFIRMED' AND c1.status <> 'RECOVERED' " +
-            "WITH source, c1, " +
-            "     CASE WHEN $status = 'CONFIRMED' THEN 'SUSPECT' " +
-            "          WHEN $status = 'SUSPECT' THEN 'PROBABLE' " +
-            "          ELSE c1.status END as l1Status " +
-            "WHERE c1 IS NOT NULL AND c1.status <> l1Status " +
-            "SET c1.status = l1Status, c1.statusUpdatedAt = timestamp() " +
-            "WITH source, collect(DISTINCT {id: c1.anonymousId, status: l1Status}) as l1 " +
-            "OPTIONAL MATCH (source)-[r1]-(c1_node:User)-[r2]-(c2:User) " +
-            "WHERE $status = 'CONFIRMED' " +
-            "  AND ( " +
-            "    (type(r1)='ENCOUNTERED' AND coalesce(r1.isValid, true) AND r1.startTime > $threshold) OR " +
-            "    (type(r1)='MEMBER_OF' AND EXISTS { MATCH (source)-[:MEMBER_OF]->(circ1:Circle)<-[:MEMBER_OF]-(c1_node) WHERE coalesce(circ1.isValid, true) }) " +
-            "  ) " +
-            "  AND ( " +
-            "    (type(r2)='ENCOUNTERED' AND coalesce(r2.isValid, true) AND r2.startTime > $threshold) OR " +
-            "    (type(r2)='MEMBER_OF' AND EXISTS { MATCH (c1_node)-[:MEMBER_OF]->(circ2:Circle)<-[:MEMBER_OF]-(c2) WHERE coalesce(circ2.isValid, true) }) " +
-            "  ) " +
-            "  AND c2.status = 'ACTIVE' AND c2.anonymousId <> source.anonymousId " +
-            "SET c2.status = 'PROBABLE' " +
-            "WITH source, l1, collect(DISTINCT {id: c2.anonymousId, status: 'PROBABLE'}) as l2 " +
-            "RETURN source.anonymousId as sourceId, [x in (l1 + l2) WHERE x.id IS NOT NULL] as affectedContacts";
+        boolean propagate = settings.getUnconfirmedFencingEnabled() != null && settings.getUnconfirmedFencingEnabled();
 
-        var result = neo4jClient.query(unifiedQuery)
+        // Robust Multi-Tier High-Confidence Propagation Cypher - Augmented with isValid checks and timing
+        String unifiedQuery;
+        if (propagate) {
+            unifiedQuery = 
+                "MATCH (source:User {anonymousId: $id}) " +
+                "SET source.status = $status, source.statusUpdatedAt = timestamp() " +
+                "WITH source " +
+                "OPTIONAL MATCH (source)-[r1]-(c1:User) " +
+                "WHERE ( " +
+                "  (type(r1)='ENCOUNTERED' AND coalesce(r1.isValid, true) AND r1.startTime > $threshold) OR " +
+                "  (type(r1)='MEMBER_OF' AND EXISTS { MATCH (source)-[:MEMBER_OF]->(circ:Circle)<-[:MEMBER_OF]-(c1) WHERE coalesce(circ.isValid, true) }) " +
+                ") " +
+                "  AND c1.status <> 'CONFIRMED' AND c1.status <> 'RECOVERED' " +
+                "WITH source, c1, " +
+                "     CASE WHEN $status = 'CONFIRMED' THEN 'SUSPECT' " +
+                "          WHEN $status = 'SUSPECT' THEN 'PROBABLE' " +
+                "          ELSE c1.status END as l1Status " +
+                "WHERE c1 IS NOT NULL AND c1.status <> l1Status " +
+                "SET c1.status = l1Status, c1.statusUpdatedAt = timestamp() " +
+                "WITH source, collect(DISTINCT {id: c1.anonymousId, status: l1Status}) as l1 " +
+                "OPTIONAL MATCH (source)-[r1]-(c1_node:User)-[r2]-(c2:User) " +
+                "WHERE $status = 'CONFIRMED' " +
+                "  AND ( " +
+                "    (type(r1)='ENCOUNTERED' AND coalesce(r1.isValid, true) AND r1.startTime > $threshold) OR " +
+                "    (type(r1)='MEMBER_OF' AND EXISTS { MATCH (source)-[:MEMBER_OF]->(circ1:Circle)<-[:MEMBER_OF]-(c1_node) WHERE coalesce(circ1.isValid, true) }) " +
+                "  ) " +
+                "  AND ( " +
+                "    (type(r2)='ENCOUNTERED' AND coalesce(r2.isValid, true) AND r2.startTime > $threshold) OR " +
+                "    (type(r2)='MEMBER_OF' AND EXISTS { MATCH (c1_node)-[:MEMBER_OF]->(circ2:Circle)<-[:MEMBER_OF]-(c2) WHERE coalesce(circ2.isValid, true) }) " +
+                "  ) " +
+                "  AND c2.status = 'ACTIVE' AND c2.anonymousId <> source.anonymousId " +
+                "SET c2.status = 'PROBABLE' " +
+                "WITH source, l1, collect(DISTINCT {id: c2.anonymousId, status: 'PROBABLE'}) as l2 " +
+                "RETURN source.anonymousId as sourceId, [x in (l1 + l2) WHERE x.id IS NOT NULL] as affectedContacts";
+        } else {
+            unifiedQuery = 
+                "MATCH (source:User {anonymousId: $id}) " +
+                "SET source.status = $status, source.statusUpdatedAt = timestamp() " +
+                "RETURN source.anonymousId as sourceId, [] as affectedContacts";
+        }
+
+        var querySpec = neo4jClient.query(unifiedQuery)
                 .bind(anonymousId).to("id")
-                .bind(status).to("status")
-                .bind(threshold).to("threshold")
-                .fetch().one();
+                .bind(status).to("status");
+
+        if (propagate) {
+            querySpec = querySpec.bind(threshold).to("threshold");
+        }
+
+        var result = querySpec.fetch().one();
 
         if (result.isPresent()) {
             Map<String, String> cacheUpdates = new HashMap<>();
@@ -291,6 +305,10 @@ public class HealthStatusService {
                 
                 var settings = systemSettingsRepository.getSettings()
                         .orElseThrow(() -> new IllegalStateException("System Settings not initialized"));
+                
+                if (settings.getUnconfirmedFencingEnabled() != null && !settings.getUnconfirmedFencingEnabled()) {
+                    return;
+                }
                 
                 long fenceDurationMs = (long) settings.getMandatoryFenceDays() * 24 * 60 * 60 * 1000;
                 long elapsed = System.currentTimeMillis() - user.getStatusUpdatedAt();

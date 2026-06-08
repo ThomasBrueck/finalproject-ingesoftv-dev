@@ -152,4 +152,39 @@ class HealthStatusServiceTest {
 
         assertDoesNotThrow(() -> healthStatusService.resolveStatus(anonymousId, true));
     }
+
+    @Test
+    void shouldUpdateStatusWithoutPropagationWhenToggleDisabled() {
+        String anonymousId = "user-abc-123";
+        String status = "GREEN";
+
+        // Mock settings with toggle disabled
+        SystemSettings settings = SystemSettings.builder()
+                .unconfirmedFencingEnabled(false)
+                .encounterWindowDays(14)
+                .mandatoryFenceDays(14)
+                .build();
+        when(systemSettingsRepository.getSettings()).thenReturn(Optional.of(settings));
+
+        // Mock Neo4j
+        Neo4jClient.UnboundRunnableSpec runnableSpec = Mockito.mock(Neo4jClient.UnboundRunnableSpec.class, Mockito.RETURNS_DEEP_STUBS);
+        when(neo4jClient.query(anyString())).thenReturn(runnableSpec);
+        
+        java.util.Map<String, Object> resultMap = new java.util.HashMap<>();
+        resultMap.put("sourceId", anonymousId);
+        resultMap.put("affectedContacts", java.util.Collections.emptyList());
+        
+        // When propagate is false, the threshold is not bound, so we only bind id and status.
+        when(runnableSpec.bind(anyString()).to(anyString())
+                .bind(anyString()).to(anyString())
+                .fetch().one())
+            .thenReturn(Optional.of(resultMap));
+
+        // Mock Redis
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        assertDoesNotThrow(() -> healthStatusService.updateStatus(anonymousId, status));
+        
+        Mockito.verify(kafkaTemplate).send(ArgumentMatchers.anyString(), ArgumentMatchers.anyString(), ArgumentMatchers.any());
+    }
 }
