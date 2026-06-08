@@ -1,0 +1,30 @@
+name: "CI/CD — circleguard-promotion-service"
+
+on:
+  push:
+    branches: [master]
+    paths: ['services/circleguard-promotion-service/**']
+  pull_request:
+    branches: [master]
+    paths: ['services/circleguard-promotion-service/**']
+  workflow_dispatch:
+    inputs:
+      dev-branch:
+        description: 'Branch a construir'
+        required: false
+        default: master
+
+jobs:
+  pipeline:
+    uses: ThomasBrueck/finalproject-ingesoftv-ops/.github/workflows/_cicd-pipeline.yml@master
+    with:
+      service-name: circleguard-promotion-service
+      service-port: '8088'
+      dev-branch: ${{ inputs.dev-branch || github.head_ref || 'master' }}
+      run-cd: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    secrets:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DEV_REPO_TOKEN: ${{ secrets.DEV_REPO_TOKEN }}
