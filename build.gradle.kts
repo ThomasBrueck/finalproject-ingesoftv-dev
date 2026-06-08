@@ -4,6 +4,15 @@ plugins {
     kotlin("jvm") version "1.9.24" apply false
     kotlin("plugin.spring") version "1.9.24" apply false
     kotlin("plugin.jpa") version "1.9.24" apply false
+    id("org.sonarqube") version "4.4.1.3373"
+}
+
+sonarqube {
+    properties {
+        property("sonar.projectKey", "ThomasBrueck_finalproject-ingesoftv-dev")
+        property("sonar.organization", "ThomasBrueck")
+        property("sonar.host.url", "https://sonarcloud.io")
+    }
 }
 
 allprojects {
