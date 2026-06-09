@@ -19,6 +19,21 @@ CVE-2026-43515
 # Spring Security CVE requiring 6.5.9 (Spring Boot 3.5+)
 CVE-2026-22732
 
+# Spring Security CVEs requiring versions beyond Spring Boot 3.4.5 managed range
+# CVE-2025-41232: requires 6.4.6 — Spring Boot 3.4.6+ | CVE-2025-41248: requires 6.4.10
+CVE-2025-41232
+CVE-2025-41248
+
+# Spring Core CVE requiring 6.2.11 (beyond Spring Boot 3.4.5 managed 6.2.6)
+CVE-2025-41249
+
+# Spring Boot CVE requiring 3.5.14 (beyond current 3.4.x branch)
+CVE-2026-40973
+
+# PostgreSQL CVEs — version managed by Spring Boot BOM (42.7.5), fix requires manual override
+CVE-2025-49146
+CVE-2026-42198
+
 # eclipse-temurin:21-jre base image — pebble binary CVEs, not part of application code
 CVE-2026-33811
 CVE-2026-33814
