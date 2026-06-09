@@ -35,8 +35,6 @@ subprojects {
         }
     }
 
-    extra["flyway.version"] = "11.14.1"
-
     dependencies {
         "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.4.5"))
         "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.4.5"))
