@@ -27,6 +27,8 @@ allprojects {
 subprojects {
     apply(plugin = "java")
     apply(plugin = "org.jetbrains.kotlin.jvm")
+    apply(plugin = "jacoco")
+
     extensions.configure<JavaPluginExtension> {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(21))
@@ -54,5 +56,52 @@ subprojects {
 
     tasks.withType<Test> {
         useJUnitPlatform()
+        finalizedBy(tasks.named("jacocoTestReport"))
+    }
+
+    tasks.named<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {
+        dependsOn(tasks.withType<Test>())
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+        }
+        classDirectories.setFrom(
+            files(classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/*Application*",
+                        "**/model/**",
+                        "**/dto/**",
+                        "**/config/**",
+                        "**/exception/**",
+                        "**/event/**"
+                    )
+                }
+            })
+        )
+    }
+
+    tasks.named<org.gradle.testing.jacoco.tasks.JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+        classDirectories.setFrom(
+            files(classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/*Application*",
+                        "**/model/**",
+                        "**/dto/**",
+                        "**/config/**",
+                        "**/exception/**",
+                        "**/event/**"
+                    )
+                }
+            })
+        )
+        violationRules {
+            rule {
+                limit {
+                    minimum = "0.70".toBigDecimal()
+                }
+            }
+        }
     }
 }
