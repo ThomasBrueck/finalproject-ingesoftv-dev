@@ -30,3 +30,13 @@ dependencies {
     testImplementation("org.testcontainers:postgresql:1.19.3")
     testImplementation("org.testcontainers:neo4j:1.19.3")
 }
+
+val includeDockerTests = project.hasProperty("includeDockerTests")
+
+tasks.named<Test>("test") {
+    useJUnitPlatform {
+        if (!includeDockerTests) {
+            excludeTags("docker")
+        }
+    }
+}

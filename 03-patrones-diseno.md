@@ -4,27 +4,33 @@ Este documento detalla la identificación, implementación y beneficios de los p
 
 ---
 
-## 1. Patrones de Diseño Existentes en la Arquitectura
+## 1. Patrones de Diseño Existentes en la Arquitectura (Línea Base)
 
-### 1.1 API Gateway Pattern
-* **Propósito**: Proporcionar un único punto de entrada para todos los clientes hacia los microservicios internos.
-* **Implementación**: `circleguard-gateway-service`. Autenticación de tokens JWT, ruteo dinámico hacia servicios internos y control de CORS.
-* **Beneficios**: Desacopla los clientes de la topología interna y simplifica el control de seguridad perimetral.
+### 1.1 API Gateway / Gatekeeper Pattern
+* **Explicación Teórica y Práctica (Justificación):** Actúa como un punto de entrada perimetral y validador de acceso unificado. Centraliza las tareas transversales de seguridad (como verificación de firmas de tokens JWT y validaciones de vigencia de códigos QR en Redis) antes de permitir que una petición acceda a los microservicios de negocio o autorice el paso físico. Esto evita duplicar la lógica de seguridad y el acceso a Redis en cada microservicio, reduciendo el acoplamiento global y optimizando los recursos.
+* **Mapeo de Código Explícito:**
+  * Controlador del Gateway: [GateController.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-gateway-service/src/main/java/com/circleguard/gateway/controller/GateController.java)
+  * Lógica de Validación Perimetral: [QrValidationService.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-gateway-service/src/main/java/com/circleguard/gateway/service/QrValidationService.java)
+  * Configuración de Red y Redis: [application.yml (Gateway)](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-gateway-service/src/main/resources/application.yml)
 
-### 1.2 Repository Pattern
-* **Propósito**: Abstraer los detalles de persistencia y mediar entre la lógica de negocio y las bases de datos.
-* **Implementación**: `UserNodeRepository` (Neo4j), `SystemSettingsRepository` (JPA/PostgreSQL) en todos los servicios.
-* **Beneficios**: Facilita las pruebas unitarias con mocks y permite cambiar la tecnología de persistencia sin modificar la lógica de negocio.
+### 1.2 Repository Pattern (Patrón Repositorio)
+* **Explicación Teórica y Práctica (Justificación):** Media entre la capa de negocio y la base de datos mapeando colecciones de dominio a consultas físicas. Permite que la capa de servicio permanezca completamente agnóstica a la base de datos subyacente (Neo4j para grafos o PostgreSQL para relacional). Esto facilita el desacoplamiento técnico y la testabilidad, permitiendo mockear la persistencia de datos fácilmente mediante inyecciones en pruebas unitarias.
+* **Mapeo de Código Explícito:**
+  * Repositorio de Grafos (Neo4j): [UserNodeRepository.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/repository/graph/UserNodeRepository.java) y [CircleNodeRepository.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/repository/graph/CircleNodeRepository.java)
+  * Repositorio Relacional (JPA/PostgreSQL): [SystemSettingsRepository.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/repository/jpa/SystemSettingsRepository.java) y [FloorRepository.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/repository/jpa/FloorRepository.java)
 
-### 1.3 Service Layer Pattern
-* **Propósito**: Encapsular la lógica de negocio en una capa dedicada y mantener los controladores HTTP delgados.
-* **Implementación**: Clases `@Service` como `HealthStatusService`, `CircleService`, `FloorService`.
-* **Beneficios**: Centraliza las reglas de negocio, coordina transacciones y mejora la testabilidad.
+### 1.3 Service Layer Pattern (Capa de Servicio)
+* **Explicación Teórica y Práctica (Justificación):** Define un límite lógico y encapsula las transacciones y lógica de negocio principales, aislando los controladores HTTP de la complejidad del flujo operativo. Mantiene a los controladores delgados (solo responsables de parsear peticiones y retornar respuestas HTTP) y centraliza las reglas de dominio para facilitar la reutilización de código y mantenimiento.
+* **Mapeo de Código Explícito:**
+  * Servicio de Promociones y Cercos: [HealthStatusService.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/service/HealthStatusService.java)
+  * Ciclos de Vida Automáticos: [StatusLifecycleService.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/service/StatusLifecycleService.java)
+  * Lógica de Círculos: [CircleService.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/service/CircleService.java)
 
-### 1.4 Observer / Publish-Subscribe Pattern
-* **Propósito**: Comunicación asíncrona y reactiva entre microservicios sin acoplamiento temporal.
-* **Implementación**: **Apache Kafka**. Eventos publicados en tópicos como `promotion.status.changed` y `circle.fenced`, consumidos de forma asíncrona por `circleguard-notification-service`.
-* **Beneficios**: Incrementa la resiliencia y escalabilidad procesando tareas pesadas fuera del hilo HTTP principal.
+### 1.4 Observer / Publish-Subscribe Pattern (Publicador-Suscriptor)
+* **Explicación Teórica y Práctica (Justificación):** Facilita la mensajería asíncrona no bloqueante entre microservicios, logrando desacoplamiento temporal y espacial. El emisor publica un evento y puede continuar inmediatamente con su hilo HTTP; los suscriptores escuchan y procesan el evento en background. Esto garantiza resiliencia, ya que si el receptor (servicio de notificaciones) sufre una caída, los mensajes quedan retenidos en Kafka sin causar pérdida de datos.
+* **Mapeo de Código Explícito:**
+  * Publicador de Eventos (Productor): [HealthStatusService.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-promotion-service/src/main/java/com/circleguard/promotion/service/HealthStatusService.java) (envío de mensajes mediante `kafkaTemplate.send`)
+  * Suscriptor de Cercos (Consumidores): [ExposureNotificationListener.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-notification-service/src/main/java/com/circleguard/notification/service/ExposureNotificationListener.java) y [CircleFencedListener.java](file:///c:/Users/Juane/Documents/finalproject-ingesoftv-dev/services/circleguard-notification-service/src/main/java/com/circleguard/notification/service/CircleFencedListener.java)
 
 ---
 
