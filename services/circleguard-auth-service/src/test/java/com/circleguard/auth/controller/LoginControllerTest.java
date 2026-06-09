@@ -64,4 +64,40 @@ public class LoginControllerTest {
                 .andExpect(jsonPath("$.anonymousId").value(anonymousId.toString()))
                 .andExpect(jsonPath("$.type").value("Bearer"));
     }
+
+    @Test
+    void shouldReturn401WhenAuthenticationFails() throws Exception {
+        Mockito.when(authManager.authenticate(Mockito.any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Bad credentials"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\": \"bad\", \"password\": \"wrong\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid username or password"));
+    }
+
+    @Test
+    void shouldGenerateVisitorHandoffSuccessfully() throws Exception {
+        UUID anonymousId = UUID.randomUUID();
+        String token = "visitor-jwt-token";
+
+        Mockito.when(jwtService.generateToken(Mockito.eq(anonymousId), Mockito.any()))
+                .thenReturn(token);
+
+        mockMvc.perform(post("/api/v1/auth/visitor/handoff")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"anonymousId\": \"" + anonymousId.toString() + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value(token))
+                .andExpect(jsonPath("$.handoffPayload").exists());
+    }
+
+    @Test
+    void shouldReturn400WhenVisitorHandoffMissingAnonymousId() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/visitor/handoff")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
 }
