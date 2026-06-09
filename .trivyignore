@@ -1,0 +1,31 @@
+# Tomcat CVEs requiring Tomcat > 10.1.41 (beyond Spring Boot 3.4.x managed version)
+# Fix path: upgrade to Spring Boot 3.5.x or override tomcat.version manually
+CVE-2025-48988
+CVE-2025-48989
+CVE-2025-52520
+CVE-2025-53506
+CVE-2025-55752
+CVE-2026-24734
+CVE-2026-24880
+CVE-2026-34483
+CVE-2026-34487
+CVE-2026-41284
+CVE-2026-41293
+CVE-2026-42498
+CVE-2026-43512
+CVE-2026-43513
+CVE-2026-43515
+
+# Spring Security CVE requiring 6.5.9 (Spring Boot 3.5+)
+CVE-2026-22732
+
+# eclipse-temurin:21-jre base image — pebble binary CVEs, not part of application code
+CVE-2026-33811
+CVE-2026-33814
+CVE-2026-39820
+CVE-2026-39823
+CVE-2026-39825
+CVE-2026-39826
+CVE-2026-39836
+CVE-2026-42499
+CVE-2026-42504
