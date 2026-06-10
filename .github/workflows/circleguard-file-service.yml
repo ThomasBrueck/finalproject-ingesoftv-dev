@@ -19,7 +19,6 @@ jobs:
     uses: ThomasBrueck/finalproject-ingesoftv-ops/.github/workflows/_cicd-pipeline.yml@master
     with:
       service-name: circleguard-file-service
-      service-port: '8085'
       dev-branch: ${{ inputs.dev-branch || github.head_ref || 'master' }}
       run-cd: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     secrets:
