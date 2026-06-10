@@ -8,6 +8,7 @@ COPY services/circleguard-promotion-service/src/ services/circleguard-promotion-
 RUN ./gradlew :services:circleguard-promotion-service:bootJar --no-daemon
 
 FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/services/circleguard-promotion-service/build/libs/*.jar app.jar
 EXPOSE 8580
