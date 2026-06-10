@@ -19,8 +19,8 @@ import java.util.UUID;
  * peticiones a identity-service agote los recursos del auth-service completo.
  *
  * Configuración del Bulkhead en application.yml:
- *   - max-concurrent-calls: Máximo de llamadas simultáneas permitidas.
- *   - max-wait-duration: Tiempo máximo de espera antes de rechazar la solicitud.
+ * - max-concurrent-calls: Máximo de llamadas simultáneas permitidas.
+ * - max-wait-duration: Tiempo máximo de espera antes de rechazar la solicitud.
  */
 @Component
 @RequiredArgsConstructor
@@ -48,8 +48,7 @@ public class IdentityClient {
         Map<String, Object> response = restTemplate.postForObject(
                 identityServiceUrl + "/api/v1/identities/map",
                 request,
-                Map.class
-        );
+                Map.class);
         return UUID.fromString(response.get("anonymousId").toString());
     }
 
@@ -69,9 +68,11 @@ public class IdentityClient {
     }
 
     /**
-     * Fallback genérico ejecutado cuando identity-service falla por cualquier error de red.
+     * Fallback genérico ejecutado cuando identity-service falla por cualquier error
+     * de red.
      *
-     * CA 2.2: Cubre fallos de conexión o timeout además de la saturación del Bulkhead.
+     * CA 2.2: Cubre fallos de conexión o timeout además de la saturación del
+     * Bulkhead.
      */
     UUID getAnonymousIdFallback(String realIdentity, Exception ex) {
         log.warn("[BULKHEAD] Fallo en llamada a identity-service para la identidad '{}'. " +
