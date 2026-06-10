@@ -10,5 +10,5 @@ RUN ./gradlew :services:circleguard-file-service:bootJar --no-daemon
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=builder /app/services/circleguard-file-service/build/libs/*.jar app.jar
-EXPOSE 8085
+EXPOSE 8280
 ENTRYPOINT ["java", "-jar", "app.jar"]
