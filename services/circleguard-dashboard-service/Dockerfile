@@ -8,6 +8,7 @@ COPY services/circleguard-dashboard-service/src/ services/circleguard-dashboard-
 RUN ./gradlew :services:circleguard-dashboard-service:bootJar --no-daemon
 
 FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/services/circleguard-dashboard-service/build/libs/*.jar app.jar
 EXPOSE 8084
