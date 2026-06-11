@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
@@ -29,12 +30,20 @@ public class PromotionClient {
         );
     }
 
+    private static final Pattern DEPARTMENT_PATTERN = Pattern.compile("[A-Za-z0-9 _-]{1,64}");
+
     @CircuitBreaker(name = "promotionService", fallbackMethod = "getHealthStatsByDepartmentFallback")
     @SuppressWarnings("unchecked")
     public Map<String, Object> getHealthStatsByDepartment(String department) {
+        // Validate user-controlled input and pass it as an encoded URI variable
+        // instead of concatenating it into the path (S7044 - SSRF).
+        if (department == null || !DEPARTMENT_PATTERN.matcher(department).matches()) {
+            throw new IllegalArgumentException("Invalid department");
+        }
         return restTemplate.getForObject(
-                promotionServiceUrl + "/api/v1/health-status/stats/department/" + department,
-                Map.class
+                promotionServiceUrl + "/api/v1/health-status/stats/department/{dept}",
+                Map.class,
+                department
         );
     }
 

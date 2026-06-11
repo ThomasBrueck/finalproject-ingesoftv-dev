@@ -8,7 +8,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/analytics")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:3000}")
 @RequiredArgsConstructor
 public class AnalyticsController {
     private final AnalyticsService analyticsService;

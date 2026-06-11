@@ -1,5 +1,7 @@
 package com.circleguard.form.controller;
 
+import com.circleguard.form.dto.QuestionnaireRequest;
+import com.circleguard.form.model.Question;
 import com.circleguard.form.model.Questionnaire;
 import com.circleguard.form.service.QuestionnaireService;
 import lombok.RequiredArgsConstructor;
@@ -8,10 +10,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/questionnaires")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:3000}")
 @RequiredArgsConstructor
 public class QuestionnaireController {
     private final QuestionnaireService service;
@@ -29,7 +32,23 @@ public class QuestionnaireController {
     }
 
     @PostMapping
-    public ResponseEntity<Questionnaire> create(@RequestBody Questionnaire questionnaire) {
+    public ResponseEntity<Questionnaire> create(@RequestBody QuestionnaireRequest request) {
+        Questionnaire questionnaire = Questionnaire.builder()
+                .title(request.title())
+                .description(request.description())
+                .version(request.version())
+                .isActive(request.isActive())
+                .build();
+        if (request.questions() != null) {
+            questionnaire.setQuestions(request.questions().stream()
+                    .map(q -> Question.builder()
+                            .text(q.text())
+                            .type(q.type())
+                            .options(q.options())
+                            .orderIndex(q.orderIndex())
+                            .build())
+                    .collect(Collectors.toList()));
+        }
         return ResponseEntity.ok(service.saveQuestionnaire(questionnaire));
     }
 

@@ -1,5 +1,6 @@
 package com.circleguard.promotion.controller;
 
+import com.circleguard.promotion.dto.SystemSettingsRequest;
 import com.circleguard.promotion.model.jpa.SystemSettings;
 import com.circleguard.promotion.repository.jpa.SystemSettingsRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,25 +26,25 @@ public class AdminController {
 
     @PostMapping
     @org.springframework.cache.annotation.CacheEvict(value = "systemSettings", allEntries = true)
-    public ResponseEntity<SystemSettings> updateSettings(@RequestBody SystemSettings newSettings) {
+    public ResponseEntity<SystemSettings> updateSettings(@RequestBody SystemSettingsRequest newSettings) {
         log.info("Updating system settings: {}", newSettings);
-        
+
         SystemSettings settings = settingsRepository.getSettings()
             .orElseGet(this::initializeDefaultSettings);
-            
-        if (newSettings.getUnconfirmedFencingEnabled() != null) {
-            settings.setUnconfirmedFencingEnabled(newSettings.getUnconfirmedFencingEnabled());
+
+        if (newSettings.unconfirmedFencingEnabled() != null) {
+            settings.setUnconfirmedFencingEnabled(newSettings.unconfirmedFencingEnabled());
         }
-        if (newSettings.getAutoThresholdSeconds() != null) {
-            settings.setAutoThresholdSeconds(newSettings.getAutoThresholdSeconds());
+        if (newSettings.autoThresholdSeconds() != null) {
+            settings.setAutoThresholdSeconds(newSettings.autoThresholdSeconds());
         }
-        if (newSettings.getMandatoryFenceDays() != null) {
-            settings.setMandatoryFenceDays(newSettings.getMandatoryFenceDays());
+        if (newSettings.mandatoryFenceDays() != null) {
+            settings.setMandatoryFenceDays(newSettings.mandatoryFenceDays());
         }
-        if (newSettings.getEncounterWindowDays() != null) {
-            settings.setEncounterWindowDays(newSettings.getEncounterWindowDays());
+        if (newSettings.encounterWindowDays() != null) {
+            settings.setEncounterWindowDays(newSettings.encounterWindowDays());
         }
-        
+
         settingsRepository.save(settings);
         return ResponseEntity.ok(settings);
     }

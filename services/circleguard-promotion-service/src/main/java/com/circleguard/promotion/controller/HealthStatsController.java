@@ -10,7 +10,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/health-status")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:3000}")
 public class HealthStatsController {
 
     private final Neo4jClient neo4jClient;
