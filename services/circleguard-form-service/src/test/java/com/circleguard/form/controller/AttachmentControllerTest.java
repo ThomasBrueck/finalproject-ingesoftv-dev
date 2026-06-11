@@ -41,6 +41,6 @@ class AttachmentControllerTest {
                 "file", "", "application/pdf", new byte[0]);
 
         mockMvc.perform(multipart("/api/v1/attachments").file(file))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().is(500));
     }
 }

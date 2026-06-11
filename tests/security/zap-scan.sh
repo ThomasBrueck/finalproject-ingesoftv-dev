@@ -1,29 +1,73 @@
 #!/bin/bash
-# OWASP ZAP API Security Scan
-# Usage: ./zap-scan.sh <target-url> [output-dir]
+# OWASP ZAP DAST Security Scan
+# Scans ALL microservice endpoints for vulnerabilities
+# Usage: ./zap-scan.sh <base-url> [output-dir]
+set -euo pipefail
 
-TARGET_URL="${1:-http://localhost:8083}"
+BASE_URL="${1:-http://localhost:8083}"
 OUTPUT_DIR="${2:-build/reports/security}"
-REPORT_FILE="$OUTPUT_DIR/zap-report.html"
+SUMMARY_FILE="$OUTPUT_DIR/zap-summary.txt"
+FAILURES=0
+
+SCAN_TARGETS=(
+  "gateway-service:http://localhost:8083"
+  "auth-service:http://localhost:8180"
+  "form-service:http://localhost:8086"
+  "identity-service:http://localhost:8083"
+  "promotion-service:http://localhost:8088"
+  "notification-service:http://localhost:8082"
+  "dashboard-service:http://localhost:8084"
+  "file-service:http://localhost:8085"
+)
 
 mkdir -p "$OUTPUT_DIR"
 
-docker run --rm \
-  --network host \
-  -v "$(pwd)/$OUTPUT_DIR:/zap/wrk" \
-  softwaresecurityprojects/zap-stable \
-  zap-api-scan.py \
-  -t "$TARGET_URL/v3/api-docs" \
-  -f openapi \
-  -r zap-report.html \
-  -w zap-report.md \
-  -I \
-  -z "-config globalexcludeurl.url_list.url\(0\).regex='.*/actuator/health.*'" \
-  || true
+echo "=== OWASP ZAP DAST Scan ===" | tee "$SUMMARY_FILE"
+echo "Targets: ${#SCAN_TARGETS[@]} services" | tee -a "$SUMMARY_FILE"
+echo "Date: $(date -u)" | tee -a "$SUMMARY_FILE"
+echo "" | tee -a "$SUMMARY_FILE"
 
-echo "=== ZAP Scan Complete ==="
-echo "HTML Report: $REPORT_FILE"
-if grep -q "HIGH\|CRITICAL" "$OUTPUT_DIR/zap-report.md" 2>/dev/null; then
-  echo "WARNING: HIGH or CRITICAL alerts found in ZAP scan!"
-  grep "HIGH\|CRITICAL" "$OUTPUT_DIR/zap-report.md"
-fi
+for target in "${SCAN_TARGETS[@]}"; do
+  service_name="${target%%:*}"
+  service_url="${target##*:}"
+  report_file="$OUTPUT_DIR/zap-report-${service_name}.html"
+  markdown_file="$OUTPUT_DIR/zap-report-${service_name}.md"
+
+  echo "Scanning $service_name ($service_url)..." | tee -a "$SUMMARY_FILE"
+
+  # Run ZAP API scan with full spider + active scan
+  docker run --rm \
+    --network host \
+    -v "$(pwd)/$OUTPUT_DIR:/zap/wrk" \
+    softwaresecurityprojects/zap-stable \
+    zap-full-scan.py \
+    -t "$service_url" \
+    -r "zap-report-${service_name}.html" \
+    -w "zap-report-${service_name}.md" \
+    -I \
+    -z "-config globalexcludeurl.url_list.url\(0\).regex='.*/actuator/health.*'" \
+    -z "-config rules.cookie.ignorelist=.*" \
+    -T 5 \
+    2>&1 | tail -5
+
+  # Check for HIGH/CRITICAL alerts
+  if [ -f "$OUTPUT_DIR/$markdown_file" ]; then
+    high_count=$(grep -c "HIGH" "$OUTPUT_DIR/$markdown_file" 2>/dev/null || echo 0)
+    critical_count=$(grep -c "CRITICAL" "$OUTPUT_DIR/$markdown_file" 2>/dev/null || echo 0)
+    total=$((high_count + critical_count))
+
+    if [ "$total" -gt 0 ]; then
+      echo "WARNING: $service_name - $total HIGH/CRITICAL alerts found!" | tee -a "$SUMMARY_FILE"
+      grep -E "HIGH|CRITICAL" "$OUTPUT_DIR/$markdown_file" | head -10 | tee -a "$SUMMARY_FILE"
+      FAILURES=$((FAILURES + 1))
+    else
+      echo "PASS: $service_name - no HIGH/CRITICAL alerts" | tee -a "$SUMMARY_FILE"
+    fi
+  fi
+  echo "" | tee -a "$SUMMARY_FILE"
+done
+
+echo "========================================" | tee -a "$SUMMARY_FILE"
+echo "Services with HIGH/CRITICAL findings: $FAILURES" | tee -a "$SUMMARY_FILE"
+
+exit "$FAILURES"

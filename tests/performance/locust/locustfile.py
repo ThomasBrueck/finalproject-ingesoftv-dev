@@ -1,6 +1,6 @@
 """
 CircleGuard Performance / Stress Tests
-Run: locust -f locustfile.py --host http://localhost:8080
+Run via run-locust.sh (manages 4 parallel processes, one per service)
 
 Scenarios:
   - CampusEntryUser: scans QR code at a building entrance (gateway-service)
@@ -12,16 +12,13 @@ Scenarios:
 import uuid
 import time
 import jwt as pyjwt
-from locust import HttpUser, TaskSet, task, between, events
+from locust import HttpUser, TaskSet, task, between, events, tag
 
-
-# ── shared helpers ──────────────────────────────────────────────────────────────
 
 QR_SECRET = "my-qr-secret-key-for-tests-1234567890ab"
 
 
 def _make_qr_token(anonymous_id: str) -> str:
-    """Generates a signed QR JWT the same way the auth-service would."""
     payload = {
         "sub": anonymous_id,
         "iat": int(time.time()),
@@ -30,15 +27,12 @@ def _make_qr_token(anonymous_id: str) -> str:
     return pyjwt.encode(payload, QR_SECRET, algorithm="HS256")
 
 
-# ── Task sets ────────────────────────────────────────────────────────────────────
-
 class GatewayTasks(TaskSet):
-    """Simulates users scanning their QR code at a campus entry point."""
-
     def on_start(self):
         self.anonymous_id = str(uuid.uuid4())
         self.token = _make_qr_token(self.anonymous_id)
 
+    @tag("gateway-service")
     @task(5)
     def validate_qr_token(self):
         self.client.post(
@@ -47,9 +41,9 @@ class GatewayTasks(TaskSet):
             name="POST /gate/validate",
         )
 
+    @tag("gateway-service")
     @task(1)
     def validate_expired_token(self):
-        """Stress test with invalid tokens to ensure the service handles them gracefully."""
         self.client.post(
             "/api/v1/gate/validate",
             json={"token": "invalid.token.payload"},
@@ -58,11 +52,10 @@ class GatewayTasks(TaskSet):
 
 
 class HealthFormTasks(TaskSet):
-    """Simulates students submitting their daily health questionnaire."""
-
     def on_start(self):
         self.anonymous_id = str(uuid.uuid4())
 
+    @tag("form-service")
     @task(3)
     def submit_healthy_survey(self):
         self.client.post(
@@ -75,6 +68,7 @@ class HealthFormTasks(TaskSet):
             name="POST /surveys (healthy)",
         )
 
+    @tag("form-service")
     @task(1)
     def submit_symptomatic_survey(self):
         self.client.post(
@@ -88,6 +82,7 @@ class HealthFormTasks(TaskSet):
             name="POST /surveys (symptomatic)",
         )
 
+    @tag("form-service")
     @task(2)
     def get_active_questionnaire(self):
         self.client.get(
@@ -97,8 +92,7 @@ class HealthFormTasks(TaskSet):
 
 
 class DashboardTasks(TaskSet):
-    """Simulates health administrators querying the analytics dashboard."""
-
+    @tag("dashboard-service")
     @task(4)
     def get_health_board(self):
         self.client.get(
@@ -106,6 +100,7 @@ class DashboardTasks(TaskSet):
             name="GET /analytics/health-board",
         )
 
+    @tag("dashboard-service")
     @task(2)
     def get_campus_summary(self):
         self.client.get(
@@ -113,6 +108,7 @@ class DashboardTasks(TaskSet):
             name="GET /analytics/summary",
         )
 
+    @tag("dashboard-service")
     @task(1)
     def get_time_series(self):
         self.client.get(
@@ -120,6 +116,7 @@ class DashboardTasks(TaskSet):
             name="GET /analytics/time-series",
         )
 
+    @tag("dashboard-service")
     @task(1)
     def get_department_stats(self):
         for dept in ("Engineering", "Medicine", "Law"):
@@ -130,8 +127,7 @@ class DashboardTasks(TaskSet):
 
 
 class IdentityTasks(TaskSet):
-    """Simulates identity mapping during user onboarding (auth flow)."""
-
+    @tag("identity-service")
     @task(3)
     def map_student_identity(self):
         email = f"student-{uuid.uuid4().hex[:8]}@university.edu"
@@ -141,6 +137,7 @@ class IdentityTasks(TaskSet):
             name="POST /identities/map",
         )
 
+    @tag("identity-service")
     @task(1)
     def register_visitor(self):
         self.client.post(
@@ -154,37 +151,25 @@ class IdentityTasks(TaskSet):
         )
 
 
-# ── User classes (configurable host per user type) ───────────────────────────────
-
 class CampusEntryUser(HttpUser):
-    """Represents students / staff scanning their QR code at a gate."""
     tasks = [GatewayTasks]
     wait_time = between(1, 3)
-    host = "http://localhost:8083"
 
 
 class HealthFormUser(HttpUser):
-    """Represents students filling in the daily health form."""
     tasks = [HealthFormTasks]
     wait_time = between(2, 5)
-    host = "http://localhost:8082"
 
 
 class DashboardUser(HttpUser):
-    """Represents health administrators reviewing aggregated stats."""
     tasks = [DashboardTasks]
     wait_time = between(3, 8)
-    host = "http://localhost:8085"
 
 
 class IdentityUser(HttpUser):
-    """Represents newly onboarded users being registered in the identity vault."""
     tasks = [IdentityTasks]
     wait_time = between(1, 4)
-    host = "http://localhost:8084"
 
-
-# ── Event hooks for reporting ─────────────────────────────────────────────────────
 
 @events.quitting.add_listener
 def on_quitting(environment, **kwargs):
