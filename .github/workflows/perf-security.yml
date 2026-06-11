@@ -1,0 +1,128 @@
+# ==============================================================================
+# CircleGuard — Pruebas de Rendimiento (Locust) y Seguridad DAST (OWASP ZAP)
+#
+# Corre UNA vez por push a master (igual que sonarcloud.yml) contra el
+# namespace stage en AKS, usando port-forwards — el mismo patrón que los E2E.
+# No bloquea los deploys: es un workflow independiente de los 8 pipelines
+# por-servicio; sus reportes quedan como artifacts del run.
+#
+# Requisito 5 del taller: "Implementar pruebas de rendimiento y estrés con
+# Locust", "pruebas de seguridad (OWASP ZAP)", "Configurar ejecución
+# automatizada en pipelines".
+# ==============================================================================
+
+name: Performance & Security Tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'services/**'
+      - 'tests/**'
+  workflow_dispatch:
+    inputs:
+      locust-scenario:
+        description: 'Escenario Locust (light/medium/stress)'
+        required: false
+        default: light
+
+env:
+  AKS_CLUSTER: circleguard-aks
+  AKS_RG: circleguard-core-rg
+
+jobs:
+  perf-security:
+    name: Locust + OWASP ZAP (contra Stage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ env.AKS_RG }}
+          cluster-name: ${{ env.AKS_CLUSTER }}
+
+      - name: Start port-forwards + health gate
+        run: |
+          mkdir -p /tmp/pf-logs
+          kubectl port-forward -n stage service/circleguard-auth-service 8180:80 >/tmp/pf-logs/auth.log 2>&1 &
+          echo $! > /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-identity-service 8083:80 >/tmp/pf-logs/identity.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-promotion-service 8088:80 >/tmp/pf-logs/promotion.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-notification-service 8082:80 >/tmp/pf-logs/notification.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-form-service 8086:80 >/tmp/pf-logs/form.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-gateway-service 8087:80 >/tmp/pf-logs/gateway.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-dashboard-service 8084:80 >/tmp/pf-logs/dashboard.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          kubectl port-forward -n stage service/circleguard-file-service 8085:80 >/tmp/pf-logs/file.log 2>&1 &
+          echo $! >> /tmp/pf.pids
+          sleep 5
+          echo "=== Waiting for all services to report healthy (HTTP 200) ==="
+          FAILED=0
+          for port in 8180 8083 8088 8082 8086 8087 8084 8085; do
+            UP=0
+            for i in $(seq 1 60); do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:$port/actuator/health" 2>/dev/null || echo 000)
+              if [ "$CODE" = "200" ]; then UP=1; break; fi
+              sleep 3
+            done
+            if [ "$UP" = "0" ]; then
+              echo "::error::localhost:$port no respondió 200 en 180s (último código: $CODE)"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" = "0" ] || exit 1
+
+      - name: Run Locust performance tests
+        id: locust
+        run: |
+          chmod +x tests/performance/run-locust.sh
+          tests/performance/run-locust.sh "${{ inputs.locust-scenario || 'light' }}"
+
+      - name: Run OWASP ZAP DAST scan
+        id: zap
+        if: always()
+        run: |
+          chmod +x tests/security/zap-scan.sh
+          tests/security/zap-scan.sh
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report-${{ github.run_id }}
+          path: build/reports/performance/
+          if-no-files-found: ignore
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-security-report-${{ github.run_id }}
+          path: build/reports/security/
+          if-no-files-found: ignore
+
+      - name: Kill port-forwards
+        if: always()
+        run: |
+          if [ -f /tmp/pf.pids ]; then
+            xargs kill < /tmp/pf.pids 2>/dev/null || true
+            rm /tmp/pf.pids
+          fi
