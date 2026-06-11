@@ -51,3 +51,7 @@ web-build/
 *_data/
 pgdata/
 neo4jdata/
+
+# Local file-storage test artifacts
+uploads/
+**/uploads/
