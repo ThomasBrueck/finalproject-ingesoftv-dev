@@ -1,2 +1,3 @@
 # circleguard-notification-service
 .
+# trigger
