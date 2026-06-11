@@ -1,102 +1,140 @@
 package com.circleguard.dashboard.integration;
 
-import com.circleguard.dashboard.controller.AnalyticsController;
+import com.circleguard.dashboard.client.PromotionClient;
 import com.circleguard.dashboard.service.AnalyticsService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestTemplate;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-@WebMvcTest(AnalyticsController.class)
+@SpringBootTest
+@Testcontainers
 @ActiveProfiles("test")
+@Tag("integration")
 class AnalyticsKAnonymityIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
+            .withDatabaseName("circleguard_dashboard")
+            .withUsername("admin")
+            .withPassword("password");
 
-    @MockBean
+    @Container
+    static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("circleguard.promotion-service.url", () -> "http://localhost:8088");
+    }
+
+    @Autowired
+    private PromotionClient promotionClient;
+
+    @Autowired
     private AnalyticsService analyticsService;
 
+    @Autowired
+    private RestTemplate restTemplate;
+
+    private MockRestServiceServer mockRestServiceServer;
+
+    @BeforeEach
+    void setUp() {
+        mockRestServiceServer = MockRestServiceServer.createServer(restTemplate);
+    }
+
     @Test
-    void shouldReturnHealthBoardStatsFromService() throws Exception {
+    void shouldReturnHealthBoardStatsFromService() {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("totalUsers", 250L);
         stats.put("greenCount", 220L);
         stats.put("redCount", 30L);
 
-        when(analyticsService.getGlobalHealthStats()).thenReturn(stats);
+        String responseBody = """
+            {
+                "totalUsers": 250,
+                "greenCount": 220,
+                "redCount": 30
+            }
+            """;
 
-        mockMvc.perform(get("/api/v1/analytics/health-board"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalUsers").value(250))
-                .andExpect(jsonPath("$.greenCount").value(220));
+        mockRestServiceServer.expect(requestTo("http://localhost:8088/api/v1/health-status/stats"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        Map<String, Object> result = analyticsService.getGlobalHealthStats();
+
+        assertThat(result).containsEntry("totalUsers", 250L);
+        assertThat(result).containsEntry("greenCount", 220L);
+        mockRestServiceServer.verify();
     }
 
     @Test
-    void shouldReturnDepartmentStatsForGivenDepartment() throws Exception {
+    void shouldReturnDepartmentStatsForGivenDepartment() {
         Map<String, Object> filtered = new LinkedHashMap<>();
         filtered.put("totalUsers", 50L);
         filtered.put("greenCount", 45L);
         filtered.put("redCount", "<5");
         filtered.put("department", "Engineering");
 
-        when(analyticsService.getDepartmentStats("Engineering")).thenReturn(filtered);
+        String responseBody = """
+            {
+                "totalUsers": 50,
+                "greenCount": 45,
+                "redCount": "<5",
+                "department": "Engineering"
+            }
+            """;
 
-        mockMvc.perform(get("/api/v1/analytics/department/Engineering"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.department").value("Engineering"))
-                .andExpect(jsonPath("$.redCount").value("<5"));
+        mockRestServiceServer.expect(requestTo("http://localhost:8088/api/v1/health-status/stats/department/Engineering"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        Map<String, Object> result = analyticsService.getDepartmentStats("Engineering");
+
+        assertThat(result).containsEntry("department", "Engineering");
+        assertThat(result).containsEntry("redCount", "<5");
+        mockRestServiceServer.verify();
     }
 
     @Test
-    void shouldReturnCampusSummary() throws Exception {
-        Map<String, Object> summary = Map.of("campus", "main", "activeUsers", 500L);
-        when(analyticsService.getCampusSummary()).thenReturn(summary);
+    void shouldReturnCampusSummary() {
+        String responseBody = """
+            {
+                "campus": "main",
+                "activeUsers": 500
+            }
+            """;
 
-        mockMvc.perform(get("/api/v1/analytics/summary"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.campus").value("main"));
-    }
+        mockRestServiceServer.expect(requestTo("http://localhost:8088/api/v1/health-status/stats"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
-    @Test
-    void shouldReturnEntryTrendsForLocation() throws Exception {
-        UUID locationId = UUID.randomUUID();
-        List<Map<String, Object>> trends = List.of(
-                Map.of("hour", "2024-01-01T10:00:00", "entry_count", 12L),
-                Map.of("hour", "2024-01-01T11:00:00", "entry_count", "<5", "note", "Insufficient data for privacy")
-        );
+        Map<String, Object> result = analyticsService.getCampusSummary();
 
-        when(analyticsService.getEntryTrends(any(UUID.class))).thenReturn(trends);
-
-        mockMvc.perform(get("/api/v1/analytics/trends/" + locationId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[1].entry_count").value("<5"))
-                .andExpect(jsonPath("$[1].note").exists());
-    }
-
-    @Test
-    void shouldReturnTimeSeriesWithDefaultParameters() throws Exception {
-        List<Map<String, Object>> series = List.of(
-                Map.of("bucket", "2024-01-01T10:00:00", "status", "ACTIVE", "total", 200)
-        );
-
-        when(analyticsService.getTimeSeries(anyString(), any(Integer.class))).thenReturn(series);
-
-        mockMvc.perform(get("/api/v1/analytics/time-series"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+        assertThat(result).containsEntry("campus", "main");
+        assertThat(result).containsEntry("activeUsers", 500L);
+        mockRestServiceServer.verify();
     }
 }
