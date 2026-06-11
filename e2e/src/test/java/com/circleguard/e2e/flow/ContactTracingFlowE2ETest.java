@@ -34,7 +34,7 @@ class ContactTracingFlowE2ETest extends E2ETestBase {
 
         promotion.reportEncounter(anonymousId, UUID.randomUUID().toString(), "Library");
 
-        JsonNode response = promotion.reportHealthStatus(anonymousId, true, true, jwt);
+        JsonNode response = promotion.confirmPositive(anonymousId, jwt);
 
         assertEquals(200, HttpClientUtil.getStatus(response));
     }
