@@ -11,10 +11,12 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -91,6 +93,56 @@ class HealthSurveyServiceTest {
 
         verify(repository).save(argThat(s ->
                 s.getAttachmentPath() != null && ValidationStatus.PENDING == s.getValidationStatus()));
+    }
+
+    @Test
+    void shouldValidateSurveyWithApprovedStatus() {
+        UUID surveyId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        UUID anonymousId = UUID.randomUUID();
+        HealthSurvey survey = HealthSurvey.builder()
+                .id(surveyId)
+                .anonymousId(anonymousId)
+                .build();
+        when(repository.findById(surveyId)).thenReturn(Optional.of(survey));
+
+        surveyService.validateSurvey(surveyId, ValidationStatus.APPROVED, adminId);
+
+        verify(repository).save(argThat(s ->
+                s.getValidationStatus() == ValidationStatus.APPROVED && s.getValidatedBy().equals(adminId)));
+        verify(kafkaTemplate).send(eq("certificate.validated"), anyString(), any(Map.class));
+    }
+
+    @Test
+    void shouldNotEmitKafkaEventWhenNotApproved() {
+        UUID surveyId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        HealthSurvey survey = HealthSurvey.builder()
+                .id(surveyId)
+                .anonymousId(UUID.randomUUID())
+                .build();
+        when(repository.findById(surveyId)).thenReturn(Optional.of(survey));
+
+        surveyService.validateSurvey(surveyId, ValidationStatus.REJECTED, adminId);
+
+        verify(repository).save(any());
+        verify(kafkaTemplate, never()).send(eq("certificate.validated"), anyString(), any(Map.class));
+    }
+
+    @Test
+    void shouldGetPendingSurveys() {
+        HealthSurvey pending = HealthSurvey.builder()
+                .id(UUID.randomUUID())
+                .attachmentPath("/tmp/file.pdf")
+                .validationStatus(ValidationStatus.PENDING)
+                .build();
+        when(repository.findByAttachmentPathIsNotNullAndValidationStatus(ValidationStatus.PENDING))
+                .thenReturn(List.of(pending));
+
+        List<HealthSurvey> result = surveyService.getPendingSurveys();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAttachmentPath()).isEqualTo("/tmp/file.pdf");
     }
 
     @Test
