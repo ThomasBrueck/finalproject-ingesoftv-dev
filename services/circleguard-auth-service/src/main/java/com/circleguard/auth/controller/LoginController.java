@@ -13,12 +13,23 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Lazy(false)
 public class LoginController {
 
     private final AuthenticationManager authManager;
     private final JwtTokenService jwtService;
     private final IdentityClient identityClient;
     private final MeterRegistry meterRegistry;
+
+    // Los counters de Micrometer solo aparecen en /actuator/prometheus tras el
+    // primer increment; se registran en el arranque para que la métrica de
+    // negocio exista desde el primer scrape (con lazy-init global se necesita
+    // @Lazy(false) para que este bean se cree al inicio).
+    @jakarta.annotation.PostConstruct
+    void initMetrics() {
+        meterRegistry.counter("circleguard_auth_login_success_total");
+        meterRegistry.counter("circleguard_auth_login_failed_total");
+    }
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> request) {

@@ -17,6 +17,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.context.annotation.Lazy(false)
 public class HealthStatusService {
     private final UserNodeRepository userNodeRepository;
     private final Neo4jClient neo4jClient;
@@ -28,6 +29,13 @@ public class HealthStatusService {
 
     private static final String STATUS_KEY_PREFIX = "user:status:";
     private static final String TOPIC_STATUS_CHANGED = "promotion.status.changed";
+
+    // El counter solo aparece en /actuator/prometheus tras el primer increment;
+    // se registra al arranque para que la métrica exista desde el primer scrape.
+    @jakarta.annotation.PostConstruct
+    void initMetrics() {
+        meterRegistry.counter("circleguard_promotion_fenced_users_total");
+    }
 
     /**
      * Updates a user's health status and triggers recursive fencing if required.
