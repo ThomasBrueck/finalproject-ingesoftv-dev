@@ -12,5 +12,5 @@
 # trigger-pipeline-20260611-v5
 
 # trigger-pipeline-20260611-v6
+.
 
-# trigger-pipeline-20260611-v7
