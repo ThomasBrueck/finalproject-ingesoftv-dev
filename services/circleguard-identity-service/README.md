@@ -1,1 +1,2 @@
 # circleguard-identity-service
+.
