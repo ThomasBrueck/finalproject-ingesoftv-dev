@@ -295,5 +295,34 @@ services:
       timeout: 10s
       retries: 15
 
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    container_name: circleguard-e2e-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - auth-service
+      - identity-service
+      - promotion-service
+      - notification-service
+      - form-service
+      - gateway-service
+      - dashboard-service
+      - file-service
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: circleguard-e2e-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning/datasources/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./grafana/provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./grafana/provisioning/dashboards/circleguard_dashboard.json:/var/lib/grafana/dashboards/circleguard_dashboard.json
+    depends_on:
+      - prometheus
+
 volumes:
   e2e-pgdata:

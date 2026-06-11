@@ -4,6 +4,7 @@ import com.circleguard.form.model.HealthSurvey;
 import com.circleguard.form.model.Questionnaire;
 import com.circleguard.form.model.ValidationStatus;
 import com.circleguard.form.repository.HealthSurveyRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class HealthSurveyService {
     private final QuestionnaireService questionnaireService;
     private final SymptomMapper symptomMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final MeterRegistry meterRegistry;
 
     private static final String TOPIC_SURVEY_SUBMITTED = "survey.submitted";
     private static final String TOPIC_CERTIFICATE_VALIDATED = "certificate.validated";
@@ -31,6 +33,10 @@ public class HealthSurveyService {
         boolean hasSymptoms = activeQuestionnaire
                 .map(q -> symptomMapper.hasSymptoms(survey, q))
                 .orElse(false);
+        
+        if (hasSymptoms) {
+            meterRegistry.counter("circleguard_form_symptomatic_surveys_total").increment();
+        }
         
         // Compatibility: update the legacy fields if they are missing in request but present in responses
         if (survey.getHasFever() == null) survey.setHasFever(hasSymptoms);
