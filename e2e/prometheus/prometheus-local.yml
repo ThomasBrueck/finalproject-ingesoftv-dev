@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Scraping de servicios corriendo en el host (./gradlew bootRun o docker-compose completo)
+  - job_name: 'circleguard-services'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'host.docker.internal:8180'   # auth-service
+          - 'host.docker.internal:8083'   # identity-service
+          - 'host.docker.internal:8088'   # promotion-service
+          - 'host.docker.internal:8082'   # notification-service
+          - 'host.docker.internal:8086'   # form-service
+          - 'host.docker.internal:8087'   # gateway-service
+          - 'host.docker.internal:8084'   # dashboard-service
+          - 'host.docker.internal:8085'   # file-service

@@ -23,12 +23,15 @@ class HealthStatusCacheTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
+    @Mock
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
     private HealthStatusService healthStatusService;
 
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        healthStatusService = new HealthStatusService(null, null, redisTemplate, null, null, null);
+        healthStatusService = new HealthStatusService(null, null, redisTemplate, null, null, null, meterRegistry);
     }
 
     @Test

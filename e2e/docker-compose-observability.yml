@@ -1,0 +1,39 @@
+version: '3.8'
+
+# Stack de observabilidad standalone.
+# Levanta solo Prometheus + Grafana sin necesidad de los microservicios.
+# Prometheus apunta a localhost del host para que puedas correr servicios
+# individualmente (ej. un solo servicio con `./gradlew bootRun`) y verlos.
+#
+# Uso:
+#   docker compose -f docker-compose-observability.yml up -d
+#
+# URLs:
+#   Prometheus → http://localhost:9090
+#   Grafana    → http://localhost:3000  (admin / admin)
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    container_name: circleguard-obs-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus-local.yml:/etc/prometheus/prometheus.yml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: circleguard-obs-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning/datasources/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./grafana/provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./grafana/provisioning/dashboards/circleguard_dashboard.json:/var/lib/grafana/dashboards/circleguard_dashboard.json
+    depends_on:
+      - prometheus
