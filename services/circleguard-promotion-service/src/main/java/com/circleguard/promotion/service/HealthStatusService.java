@@ -9,6 +9,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
@@ -23,6 +24,7 @@ public class HealthStatusService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final com.circleguard.promotion.repository.jpa.SystemSettingsRepository systemSettingsRepository;
     private final com.circleguard.promotion.repository.graph.CircleNodeRepository circleNodeRepository;
+    private final MeterRegistry meterRegistry;
 
     private static final String STATUS_KEY_PREFIX = "user:status:";
     private static final String TOPIC_STATUS_CHANGED = "promotion.status.changed";
@@ -111,13 +113,20 @@ public class HealthStatusService {
         if (result.isPresent()) {
             Map<String, String> cacheUpdates = new HashMap<>();
             cacheUpdates.put(STATUS_KEY_PREFIX + anonymousId, status);
+            if ("SUSPECT".equals(status) || "PROBABLE".equals(status) || "CONFIRMED".equals(status)) {
+                meterRegistry.counter("circleguard_promotion_fenced_users_total").increment();
+            }
             
             @SuppressWarnings("unchecked")
             List<Map<String, String>> affected = (List<Map<String, String>>) result.get().get("affectedContacts");
             if (affected != null) {
                 affected.forEach(m -> {
                     if (m != null && m.get("id") != null) {
-                        cacheUpdates.put(STATUS_KEY_PREFIX + m.get("id"), m.get("status"));
+                        String s = m.get("status");
+                        cacheUpdates.put(STATUS_KEY_PREFIX + m.get("id"), s);
+                        if ("SUSPECT".equals(s) || "PROBABLE".equals(s) || "CONFIRMED".equals(s)) {
+                            meterRegistry.counter("circleguard_promotion_fenced_users_total").increment();
+                        }
                     }
                 });
             }

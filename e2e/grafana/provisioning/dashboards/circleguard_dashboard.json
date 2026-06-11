@@ -1,0 +1,294 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 1,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "id": 10,
+      "type": "row",
+      "title": "🔴 Estado de Servicios",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 11,
+      "title": "Servicios UP / DOWN",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 1 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP" }, "0": { "text": "DOWN" } } }
+          ]
+        }
+      },
+      "targets": [
+        { "expr": "up{job=\"circleguard-services\"}", "legendFormat": "{{instance}}" }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "📊 Métricas de Negocio",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }
+    },
+    {
+      "id": 21,
+      "title": "Auth: Inicios de Sesión por minuto",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum(increase(circleguard_auth_login_success_total[1m]))",
+          "legendFormat": "✅ Exitosos"
+        },
+        {
+          "expr": "sum(increase(circleguard_auth_login_failed_total[1m]))",
+          "legendFormat": "❌ Fallidos"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Gateway: Escaneos QR por minuto",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum(increase(circleguard_gateway_qr_scans_total{status=\"valid\"}[1m]))",
+          "legendFormat": "✅ Válidos"
+        },
+        {
+          "expr": "sum(increase(circleguard_gateway_qr_scans_total{status=\"invalid\"}[1m]))",
+          "legendFormat": "❌ Inválidos"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "Promotion: Usuarios en Cuarentena (acumulado)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 15 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(circleguard_promotion_fenced_users_total)",
+          "legendFormat": "Usuarios Fenced"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "Form: Encuestas Sintomáticas (acumulado)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 15 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(circleguard_form_symptomatic_surveys_total)",
+          "legendFormat": "Encuestas Sintomáticas"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "🌐 HTTP — Latencia y Throughput",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 }
+    },
+    {
+      "id": 31,
+      "title": "HTTP Requests / segundo por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 5 },
+          "unit": "reqps"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (rate(http_server_requests_seconds_count[1m]))",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "title": "Latencia P95 por servicio (ms)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "unit": "ms"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(http_server_requests_seconds_bucket[1m]))) * 1000",
+          "legendFormat": "P95 {{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "title": "Errores HTTP 5xx por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "red", "mode": "fixed" },
+          "custom": { "lineWidth": 2, "fillOpacity": 20 },
+          "unit": "reqps"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (rate(http_server_requests_seconds_count{status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx {{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "☕ JVM — Memoria y Threads",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 }
+    },
+    {
+      "id": 41,
+      "title": "JVM Heap Used por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "bytes"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "Heap {{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "title": "JVM Threads Live por servicio",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "unit": "short"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "right" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (jvm_threads_live_threads)",
+          "legendFormat": "Threads {{instance}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["circleguard", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CircleGuard — Observability Dashboard",
+  "uid": "circleguard-business",
+  "version": 2
+}

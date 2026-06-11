@@ -40,6 +40,15 @@ public class LoginControllerTest {
     @MockBean
     private CustomUserDetailsService userDetailsService;
 
+    @MockBean
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        io.micrometer.core.instrument.Counter mockCounter = Mockito.mock(io.micrometer.core.instrument.Counter.class);
+        Mockito.when(meterRegistry.counter(Mockito.anyString())).thenReturn(mockCounter);
+    }
+
     @Test
     void shouldLoginSuccessfullyAndReturnAnonymizedToken() throws Exception {
         String username = "testuser";

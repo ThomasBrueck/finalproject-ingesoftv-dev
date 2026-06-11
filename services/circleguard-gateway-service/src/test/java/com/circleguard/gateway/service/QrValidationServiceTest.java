@@ -20,6 +20,7 @@ public class QrValidationServiceTest {
     private QrValidationService service;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOps;
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry;
     private final String secret = "my-super-secret-test-key-32-chars-long";
 
     @BeforeEach
@@ -28,7 +29,11 @@ public class QrValidationServiceTest {
         valueOps = Mockito.mock(ValueOperations.class);
         Mockito.when(redisTemplate.opsForValue()).thenReturn(valueOps);
         
-        service = new QrValidationService(redisTemplate);
+        meterRegistry = Mockito.mock(io.micrometer.core.instrument.MeterRegistry.class);
+        io.micrometer.core.instrument.Counter mockCounter = Mockito.mock(io.micrometer.core.instrument.Counter.class);
+        Mockito.when(meterRegistry.counter(Mockito.anyString(), Mockito.any(String[].class))).thenReturn(mockCounter);
+        
+        service = new QrValidationService(redisTemplate, meterRegistry);
         ReflectionTestUtils.setField(service, "qrSecret", secret);
     }
 
