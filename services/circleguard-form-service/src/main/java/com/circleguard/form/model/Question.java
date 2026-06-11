@@ -32,7 +32,6 @@ public class Question {
     @Column(nullable = false)
     private QuestionType type;
 
-    @Column(columnDefinition = "JSONB")
     @JdbcTypeCode(SqlTypes.JSON)
     private String options; // Stored as JSON string
 

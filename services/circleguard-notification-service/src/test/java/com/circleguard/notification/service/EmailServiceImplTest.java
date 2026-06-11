@@ -36,6 +36,6 @@ class EmailServiceImplTest {
         org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () ->
                 emailService.sendAsync("user-123", "message").join());
 
-        verify(auditLogService).logDelivery(eq("user-123"), eq("EMAIL"), eq("RETRY"), any());
+        verify(auditLogService, times(3)).logDelivery(eq("user-123"), eq("EMAIL"), eq("RETRY"), any());
     }
 }

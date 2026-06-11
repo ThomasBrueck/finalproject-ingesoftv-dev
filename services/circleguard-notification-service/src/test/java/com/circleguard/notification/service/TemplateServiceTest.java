@@ -8,9 +8,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
+
+import java.io.Writer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,7 +32,11 @@ class TemplateServiceTest {
 
         Template template = mock(Template.class);
         when(freemarkerConfig.getTemplate("health_alert.ftl")).thenReturn(template);
-        when(FreeMarkerTemplateUtils.processTemplateIntoString(eq(template), any())).thenReturn("Rendered content");
+        doAnswer(invocation -> {
+            Writer out = invocation.getArgument(1);
+            out.write("Rendered content");
+            return null;
+        }).when(template).process(any(), any(Writer.class));
 
         String result = templateService.generateEmailContent("SUSPECT", "John");
 

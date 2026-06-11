@@ -36,7 +36,6 @@ public class HealthSurvey {
     @Column(name = "exposure_date")
     private LocalDate exposureDate;
 
-    @Column(columnDefinition = "JSONB")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> responses;
 

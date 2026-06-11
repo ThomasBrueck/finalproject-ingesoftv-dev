@@ -4,6 +4,7 @@ import com.circleguard.notification.service.ExposureNotificationListener;
 import com.circleguard.notification.service.LmsService;
 import com.circleguard.notification.service.NotificationDispatcher;
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -32,7 +33,7 @@ class StatusChangeNotificationIntegrationTest {
     @MockBean
     private org.springframework.mail.javamail.JavaMailSender mailSender;
 
-    @MockBean
+    @MockBean(answer = Answers.RETURNS_SELF)
     private org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
 
     @Test

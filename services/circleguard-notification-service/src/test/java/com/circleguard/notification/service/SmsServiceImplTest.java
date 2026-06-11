@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
@@ -19,7 +20,7 @@ class SmsServiceImplTest {
 
     @Test
     void shouldSendSms() {
-        smsService.sendAsync("user-123", "Test message");
+        smsService.sendAsync("user-123", "Test message").join();
 
         verify(auditLogService).logDelivery(eq("user-123"), eq("SMS"), eq("SUCCESS"), any());
     }
@@ -32,6 +33,8 @@ class SmsServiceImplTest {
         org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () ->
                 smsService.sendAsync("user-123", "message").join());
 
-        verify(auditLogService).logDelivery(eq("user-123"), eq("SMS"), eq("RETRY"), any());
+        verify(auditLogService, times(3)).logDelivery(eq("user-123"), eq("SMS"), eq("RETRY"), any());
+
+        ReflectionTestUtils.setField(impl, "accountSid", "AC_MOCK_SID");
     }
 }

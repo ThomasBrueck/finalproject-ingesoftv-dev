@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Map;
 import java.util.Optional;
@@ -18,6 +19,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
+@ActiveProfiles("test")
 class HealthSurveyServiceTest {
 
     @Autowired
@@ -60,6 +62,8 @@ class HealthSurveyServiceTest {
 
         UUID anonymousId = UUID.randomUUID();
         HealthSurvey survey = HealthSurvey.builder().anonymousId(anonymousId).build();
+        HealthSurvey saved = HealthSurvey.builder().id(UUID.randomUUID()).anonymousId(anonymousId).build();
+        when(repository.save(any())).thenReturn(saved);
 
         surveyService.submitSurvey(survey);
 
@@ -80,6 +84,8 @@ class HealthSurveyServiceTest {
                 .anonymousId(anonymousId)
                 .attachmentPath("/tmp/file.pdf")
                 .build();
+        HealthSurvey saved = HealthSurvey.builder().id(UUID.randomUUID()).anonymousId(anonymousId).build();
+        when(repository.save(any())).thenReturn(saved);
 
         surveyService.submitSurvey(survey);
 
