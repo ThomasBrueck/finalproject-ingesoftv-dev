@@ -73,6 +73,13 @@ public class SecurityConfig {
         contextSource.setBase(ldapBase);
         contextSource.setUserDn(ldapUsername);
         contextSource.setPassword(ldapPassword);
+        
+        // Configurar timeouts de conexión y lectura para evitar cuelgues indefinidos (JNDI)
+        java.util.Map<String, Object> env = new java.util.HashMap<>();
+        env.put("com.sun.jndi.ldap.connect.timeout", "2000"); // 2 segundos
+        env.put("com.sun.jndi.ldap.read.timeout", "2000");    // 2 segundos
+        contextSource.setBaseEnvironmentProperties(env);
+        
         return contextSource;
     }
 
