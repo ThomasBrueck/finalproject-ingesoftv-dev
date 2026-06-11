@@ -49,7 +49,9 @@ class IdentityFlowE2ETest extends E2ETestBase {
 
     @Test
     void shouldLookupIdentity() {
-        JsonNode loginResponse = auth.login("staff_guard", "password");
+        // El lookup exige la authority 'identity:lookup', que solo tiene el rol
+        // HEALTH_CENTER (health_user); staff_guard (GATE_STAFF) recibe 401/403.
+        JsonNode loginResponse = auth.login("health_user", "password");
         String jwt = loginResponse.get("token").asText();
 
         String realIdentity = "lookup-test-" + UUID.randomUUID().toString().substring(0, 8) + "@university.edu";
