@@ -19,9 +19,13 @@ public class FileStorageService {
     }
 
     public String saveFile(MultipartFile file) {
-        // Strip any directory components from the user-supplied name to avoid
-        // path traversal, then verify the resolved path stays inside root (S2083).
+        // Reject names that attempt path traversal, then verify the resolved
+        // path stays inside the storage root (S2083).
         String original = file.getOriginalFilename();
+        if (original != null
+                && (original.contains("..") || original.contains("/") || original.contains("\\"))) {
+            throw new RuntimeException("Invalid file name: " + original);
+        }
         String safeName = (original == null) ? "file"
                 : Paths.get(original).getFileName().toString();
         String filename = UUID.randomUUID() + "_" + safeName;
