@@ -1,0 +1,299 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: circleguard-e2e-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: circleguard
+    ports:
+      - "5433:5432"
+    volumes:
+      - e2e-pgdata:/var/lib/postgresql/data
+      - ${DEV_REPO_PATH:-..}/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d circleguard_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5.26
+    container_name: circleguard-e2e-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc"]'
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "password", "RETURN 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 15
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: circleguard-e2e-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "echo", "ruok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: circleguard-e2e-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9093:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  redis:
+    image: redis:7.2
+    container_name: circleguard-e2e-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: circleguard-e2e-ldap
+    ports:
+      - "3389:389"
+      - "6636:636"
+    environment:
+      LDAP_ORGANISATION: "CircleGuard"
+      LDAP_DOMAIN: "circleguard.edu"
+      LDAP_ADMIN_PASSWORD: "admin"
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "", "-s", "base"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-auth-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/auth-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-auth
+    ports:
+      - "8180:8180"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_auth
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_LDAP_URLS: ldap://openldap:389
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      openldap:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8180/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  identity-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-identity-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/identity-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-identity
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_identity
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  promotion-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-promotion-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/promotion-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-promotion
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_promotion
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: password
+      SPRING_REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8088/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  notification-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-notification-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/notification-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-notification
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_notification
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  form-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-form-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/form-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-form
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_form
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8086/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  gateway-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-gateway-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/gateway-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-gateway
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_REDIS_HOST: redis
+      AUTH_SERVICE_URL: http://auth-service:8180
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8087/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  dashboard-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-dashboard-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/dashboard-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-dashboard
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_dashboard
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+      PROMOTION_SERVICE_URL: http://promotion-service:8088
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      promotion-service:
+        condition: service_started
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  file-service:
+    build:
+      context: ${DEV_REPO_PATH:-..}
+      dockerfile: services/circleguard-file-service/Dockerfile
+    image: ${ACR_REGISTRY:-circleguard/e2e}/file-service:${IMAGE_TAG:-latest}
+    container_name: circleguard-e2e-file
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/circleguard_file
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+volumes:
+  e2e-pgdata:

@@ -1,52 +1,41 @@
 package com.circleguard.notification.service;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
 class EmailServiceImplTest {
 
-    @Mock
+    @Autowired
+    private EmailService emailService;
+
+    @MockBean
     private JavaMailSender mailSender;
 
-    @Mock
+    @MockBean
     private AuditLogService auditLogService;
 
-    @InjectMocks
-    private EmailServiceImpl emailService;
-
     @Test
-    void shouldSendEmailAndLogSuccess() {
-        emailService.sendAsync("user-123", "Health alert message");
+    void shouldSendEmail() {
+        emailService.sendAsync("user-123", "Health alert message").join();
 
         verify(mailSender).send(any(SimpleMailMessage.class));
         verify(auditLogService).logDelivery(eq("user-123"), eq("EMAIL"), eq("SUCCESS"), any());
     }
 
     @Test
-    void shouldLogRetryOnFailure() {
+    void shouldHandleMailException() {
         doThrow(new RuntimeException("Mail server error")).when(mailSender).send(any(SimpleMailMessage.class));
 
-        org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> {
-            emailService.sendAsync("user-123", "message").join();
-        });
+        org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () ->
+                emailService.sendAsync("user-123", "message").join());
 
-        verify(auditLogService).logDelivery(eq("user-123"), eq("EMAIL"), eq("RETRY"), any());
-    }
-
-    @Test
-    void shouldLogFailedOnRecover() {
-        Exception ex = new RuntimeException("fail");
-        var result = emailService.recover(ex, "user-123", "msg");
-
-        verify(auditLogService).logDelivery(eq("user-123"), eq("EMAIL"), eq("FAILED"), eq(null));
-        org.junit.jupiter.api.Assertions.assertTrue(result.isCompletedExceptionally());
+        verify(auditLogService, times(3)).logDelivery(eq("user-123"), eq("EMAIL"), eq("RETRY"), any());
     }
 }

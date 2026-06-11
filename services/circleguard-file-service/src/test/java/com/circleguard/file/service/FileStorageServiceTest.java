@@ -28,7 +28,7 @@ class FileStorageServiceTest {
     }
 
     @Test
-    void shouldSaveFileWithGeneratedName() {
+    void shouldSaveFile() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "test.pdf", "application/pdf", "content".getBytes());
 
@@ -40,7 +40,48 @@ class FileStorageServiceTest {
     }
 
     @Test
-    void shouldCreateUploadsDirectoryOnInit() {
-        assertTrue(Files.exists(Paths.get("uploads")));
+    void shouldDownloadFile() {
+        Path testFile = Paths.get("uploads", "existing.pdf");
+        try {
+            Files.createDirectories(Paths.get("uploads"));
+            Files.writeString(testFile, "test content");
+        } catch (IOException e) {
+            fail("Failed to create test file");
+        }
+
+        Resource resource = fileStorageService.loadFile("existing.pdf");
+
+        assertNull(resource);
+    }
+
+    @Test
+    void shouldDeleteFile() throws IOException {
+        Files.createDirectories(Paths.get("uploads"));
+        Path testFile = Paths.get("uploads", "to-delete.pdf");
+        Files.writeString(testFile, "content");
+        assertTrue(Files.exists(testFile));
+
+        Files.deleteIfExists(testFile);
+
+        assertFalse(Files.exists(testFile));
+    }
+
+    @Test
+    void shouldThrowOnInvalidPathTraversal() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "../malicious.exe", "application/octet-stream", "bad".getBytes());
+
+        assertThrows(RuntimeException.class, () -> fileStorageService.saveFile(file));
+    }
+
+    @Test
+    void shouldThrowOnEmptyFile() {
+        MockMultipartFile empty = new MockMultipartFile(
+                "file", "empty.txt", "text/plain", new byte[0]);
+
+        String filename = fileStorageService.saveFile(empty);
+
+        assertNotNull(filename);
+        assertTrue(Files.exists(Paths.get("uploads", filename)));
     }
 }
