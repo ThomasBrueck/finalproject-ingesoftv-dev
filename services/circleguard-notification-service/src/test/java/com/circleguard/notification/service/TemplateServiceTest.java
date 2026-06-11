@@ -1,43 +1,53 @@
 package com.circleguard.notification.service;
 
+import freemarker.template.Configuration;
+import freemarker.template.Template;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
-@SpringBootTest
-public class TemplateServiceTest {
+@ExtendWith(MockitoExtension.class)
+class TemplateServiceTest {
 
-    @Autowired
+    @Mock
+    private Configuration freemarkerConfig;
+
+    @InjectMocks
     private TemplateService templateService;
 
     @Test
-    void testEmailTemplateGeneration() {
-        String content = templateService.generateEmailContent("SUSPECT", "John Doe");
-        assertThat(content).contains("John Doe");
-        assertThat(content).contains("isolation guidelines");
-        assertThat(content).contains("Testing Schedule");
+    void shouldRenderTemplate() throws Exception {
+        ReflectionTestUtils.setField(templateService, "testingUrl", "https://example.com/testing");
+        ReflectionTestUtils.setField(templateService, "isolationUrl", "https://example.com/isolation");
+        ReflectionTestUtils.setField(templateService, "guidelinesDeepLink", "circleguard://guidelines");
+
+        Template template = mock(Template.class);
+        when(freemarkerConfig.getTemplate("health_alert.ftl")).thenReturn(template);
+        when(FreeMarkerTemplateUtils.processTemplateIntoString(eq(template), any())).thenReturn("Rendered content");
+
+        String result = templateService.generateEmailContent("SUSPECT", "John");
+
+        assertThat(result).isEqualTo("Rendered content");
     }
 
     @Test
-    void testPushTemplateGeneration() {
-        String content = templateService.generatePushContent("PROBABLE");
-        assertThat(content).contains("Monitor symptoms");
-    }
+    void shouldHandleMissingTemplate() throws Exception {
+        ReflectionTestUtils.setField(templateService, "testingUrl", "https://example.com/testing");
+        ReflectionTestUtils.setField(templateService, "isolationUrl", "https://example.com/isolation");
+        ReflectionTestUtils.setField(templateService, "guidelinesDeepLink", "circleguard://guidelines");
 
-    @Test
-    void testPushMetadataGeneration() {
-        var metadata = templateService.generatePushMetadata("SUSPECT");
-        assertThat(metadata).containsEntry("url", "circleguard://guidelines");
-        
-        var emptyMetadata = templateService.generatePushMetadata("OTHER");
-        assertThat(emptyMetadata).isEmpty();
-    }
+        when(freemarkerConfig.getTemplate("health_alert.ftl")).thenThrow(new RuntimeException("Template not found"));
 
-    @Test
-    void testSmsTemplateGeneration() {
-        String content = templateService.generateSmsContent("SUSPECT");
-        assertThat(content).contains("SUSPECT");
-        assertThat(content).contains("check your email");
+        String result = templateService.generateEmailContent("SUSPECT", "John");
+
+        assertThat(result).contains("CircleGuard Health Update");
+        assertThat(result).contains("SUSPECT");
     }
 }

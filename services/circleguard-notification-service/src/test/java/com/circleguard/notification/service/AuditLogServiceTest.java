@@ -22,6 +22,15 @@ class AuditLogServiceTest {
     private AuditLogService auditLogService;
 
     @Test
+    void shouldLogNotification() {
+        auditLogService.logDelivery("user-1", "EMAIL", "SUCCESS", "corr-123");
+
+        verify(kafkaTemplate).send(eq("notification.audit"), eq("user-1"), argThat((Map<String, Object> m) ->
+                "EMAIL".equals(m.get("channel")) && "SUCCESS".equals(m.get("status")) &&
+                "user-1".equals(m.get("userId")) && "corr-123".equals(m.get("correlationId"))));
+    }
+
+    @Test
     void shouldSendAuditEventToKafka() {
         auditLogService.logDelivery("user-1", "EMAIL", "SUCCESS", "corr-123");
 
