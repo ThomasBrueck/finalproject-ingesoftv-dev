@@ -31,3 +31,10 @@ management:
       show-details: always
       probes:
         enabled: true
+
+  tracing:
+    sampling:
+      probability: ${SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${JAEGER_OTLP_ENDPOINT:http://jaeger-collector.stage.svc.cluster.local:4318/v1/traces}
