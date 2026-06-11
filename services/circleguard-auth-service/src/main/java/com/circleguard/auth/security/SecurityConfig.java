@@ -43,6 +43,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/login", "/api/v1/auth/qr/verify").permitAll()
                 .requestMatchers("/api/v1/auth/qr/generate").authenticated()
                 .anyRequest().permitAll())
+            // Sin entry point explícito Spring responde 403 a peticiones sin
+            // autenticar; el contrato del API es 401 (Unauthorized).
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))
             .addFilterBefore(jwtFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
