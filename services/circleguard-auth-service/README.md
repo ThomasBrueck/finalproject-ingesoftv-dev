@@ -1,1 +1,2 @@
 # circleguard-auth-service
+.
