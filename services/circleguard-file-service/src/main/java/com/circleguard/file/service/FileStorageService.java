@@ -26,6 +26,7 @@ public class FileStorageService {
                 && (original.contains("..") || original.contains("/") || original.contains("\\"))) {
             throw new RuntimeException("Invalid file name: " + original);
         }
+
         String safeName = (original == null) ? "file"
                 : Paths.get(original).getFileName().toString();
         String filename = UUID.randomUUID() + "_" + safeName;
