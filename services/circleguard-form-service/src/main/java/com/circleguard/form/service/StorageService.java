@@ -1,5 +1,6 @@
 package com.circleguard.form.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,9 +13,12 @@ import java.util.UUID;
 @Service
 public class StorageService {
 
-    private final Path root = Paths.get("/tmp/circleguard-uploads");
+    private final Path root;
 
-    public StorageService() {
+    // Configurable storage location; defaults to an app-local "uploads" dir
+    // instead of a world-writable /tmp path (S5443).
+    public StorageService(@Value("${app.storage.dir:uploads}") String storageDir) {
+        this.root = Paths.get(storageDir).toAbsolutePath().normalize();
         try {
             Files.createDirectories(root);
         } catch (IOException e) {
@@ -23,12 +27,21 @@ public class StorageService {
     }
 
     public String store(MultipartFile file) {
+        // Keep only the file name component of the user-supplied name and verify
+        // the resolved path stays inside root to avoid path traversal (S2083).
+        String original = file.getOriginalFilename();
+        String safeName = (original == null) ? "file"
+                : Paths.get(original).getFileName().toString();
+        String filename = UUID.randomUUID() + "_" + safeName;
         try {
-            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Files.copy(file.getInputStream(), this.root.resolve(filename));
+            Path destination = this.root.resolve(filename).normalize();
+            if (!destination.startsWith(this.root)) {
+                throw new RuntimeException("Cannot store file outside the storage directory");
+            }
+            Files.copy(file.getInputStream(), destination);
             return filename;
-        } catch (Exception e) {
-            throw new RuntimeException("Could not store the file. Error: " + e.getMessage());
+        } catch (IOException e) {
+            throw new RuntimeException("Could not store the file. Error: " + e.getMessage(), e);
         }
     }
 }

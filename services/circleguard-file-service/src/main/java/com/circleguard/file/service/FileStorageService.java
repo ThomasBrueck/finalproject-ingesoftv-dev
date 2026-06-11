@@ -19,11 +19,20 @@ public class FileStorageService {
     }
 
     public String saveFile(MultipartFile file) {
-        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        // Strip any directory components from the user-supplied name to avoid
+        // path traversal, then verify the resolved path stays inside root (S2083).
+        String original = file.getOriginalFilename();
+        String safeName = (original == null) ? "file"
+                : Paths.get(original).getFileName().toString();
+        String filename = UUID.randomUUID() + "_" + safeName;
         try {
-            Files.copy(file.getInputStream(), this.root.resolve(filename));
+            Path destination = this.root.resolve(filename).normalize();
+            if (!destination.startsWith(this.root.normalize())) {
+                throw new RuntimeException("Cannot store file outside the storage directory");
+            }
+            Files.copy(file.getInputStream(), destination);
             return filename;
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException("Could not store file", e);
         }
     }

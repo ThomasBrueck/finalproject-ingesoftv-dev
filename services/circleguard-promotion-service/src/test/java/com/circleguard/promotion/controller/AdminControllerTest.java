@@ -1,5 +1,6 @@
 package com.circleguard.promotion.controller;
 
+import com.circleguard.promotion.dto.SystemSettingsRequest;
 import com.circleguard.promotion.model.jpa.SystemSettings;
 import com.circleguard.promotion.repository.jpa.SystemSettingsRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,10 +76,7 @@ class AdminControllerTest {
                 .build();
         when(settingsRepository.getSettings()).thenReturn(Optional.of(existing));
 
-        SystemSettings newSettings = SystemSettings.builder()
-                .unconfirmedFencingEnabled(false)
-                .autoThresholdSeconds(7200L)
-                .build();
+        SystemSettingsRequest newSettings = new SystemSettingsRequest(false, 7200L, null, null);
         when(settingsRepository.save(any(SystemSettings.class))).thenAnswer(i -> i.getArguments()[0]);
 
         ResponseEntity<SystemSettings> response = controller.updateSettings(newSettings);
@@ -101,7 +99,7 @@ class AdminControllerTest {
                 .build();
         when(settingsRepository.getSettings()).thenReturn(Optional.of(existing));
 
-        SystemSettings newSettings = SystemSettings.builder().build();
+        SystemSettingsRequest newSettings = new SystemSettingsRequest(null, null, null, null);
         when(settingsRepository.save(any(SystemSettings.class))).thenAnswer(i -> i.getArguments()[0]);
 
         ResponseEntity<SystemSettings> response = controller.updateSettings(newSettings);
