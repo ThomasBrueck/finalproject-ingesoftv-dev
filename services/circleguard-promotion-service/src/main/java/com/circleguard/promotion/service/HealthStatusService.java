@@ -32,7 +32,6 @@ public class HealthStatusService {
      * Consolidated into a single transaction with optimized Cypher to meet NFR-1 (<1s target).
      */
     @Transactional("neo4jTransactionManager")
-    @CacheEvict(cacheNames = "userStatus", allEntries = true)
     public void updateStatus(String anonymousId, String status) {
         updateStatus(anonymousId, status, false);
     }

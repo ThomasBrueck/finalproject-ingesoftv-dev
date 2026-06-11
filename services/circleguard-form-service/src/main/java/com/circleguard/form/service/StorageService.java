@@ -27,9 +27,14 @@ public class StorageService {
     }
 
     public String store(MultipartFile file) {
-        // Keep only the file name component of the user-supplied name and verify
-        // the resolved path stays inside root to avoid path traversal (S2083).
+        // Reject names that attempt path traversal, then verify the resolved
+        // path stays inside root to avoid path traversal (S2083).
         String original = file.getOriginalFilename();
+        if (original != null
+                && (original.contains("..") || original.contains("/") || original.contains("\\"))) {
+            throw new RuntimeException("Invalid file name: " + original);
+        }
+
         String safeName = (original == null) ? "file"
                 : Paths.get(original).getFileName().toString();
         String filename = UUID.randomUUID() + "_" + safeName;

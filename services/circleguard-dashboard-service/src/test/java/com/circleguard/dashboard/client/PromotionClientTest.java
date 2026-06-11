@@ -42,7 +42,7 @@ class PromotionClientTest {
     void shouldGetHealthStatsByDepartment() {
         Map<String, Object> expected = Map.of("department", "Engineering");
         when(restTemplate.getForObject(
-                "http://localhost:8088/api/v1/health-status/stats/department/Engineering", Map.class))
+                "http://localhost:8088/api/v1/health-status/stats/department/{dept}", Map.class, "Engineering"))
                 .thenReturn(expected);
 
         Map<String, Object> result = client.getHealthStatsByDepartment("Engineering");
