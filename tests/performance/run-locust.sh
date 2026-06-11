@@ -56,11 +56,11 @@ run_locust() {
 
   # Parse results for threshold validation
   local p95
-  p95=$(grep -oP '95th percentile: \K[0-9.]+' "$out/locust.log" || echo "9999")
+  p95=$(grep -oP '95th percentile\s*:\s*\K[0-9.]+' "$out/locust.log" || echo "9999")
   local failures
-  failures=$(grep -oP 'Failures: \K[0-9]+' "$out/locust.log" || echo "9999")
+  failures=$(grep -oP 'Failures\s*:\s*\K[0-9]+' "$out/locust.log" || echo "9999")
   local total_reqs
-  total_reqs=$(grep -oP 'Total requests: \K[0-9]+' "$out/locust.log" || echo "0")
+  total_reqs=$(grep -oP 'Total requests\s*:\s*\K[0-9]+' "$out/locust.log" || echo "0")
 
   local error_rate=0
   if [ "$total_reqs" -gt 0 ] 2>/dev/null; then

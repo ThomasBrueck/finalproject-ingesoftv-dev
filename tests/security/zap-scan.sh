@@ -39,7 +39,7 @@ for target in "${SCAN_TARGETS[@]}"; do
   docker run --rm \
     --network host \
     -v "$(pwd)/$OUTPUT_DIR:/zap/wrk" \
-    softwaresecurityprojects/zap-stable \
+    ghcr.io/zaproxy/zaproxy:stable \
     zap-full-scan.py \
     -t "$service_url" \
     -r "zap-report-${service_name}.html" \
@@ -51,14 +51,14 @@ for target in "${SCAN_TARGETS[@]}"; do
     2>&1 | tail -5
 
   # Check for HIGH/CRITICAL alerts
-  if [ -f "$OUTPUT_DIR/$markdown_file" ]; then
-    high_count=$(grep -c "HIGH" "$OUTPUT_DIR/$markdown_file" 2>/dev/null || echo 0)
-    critical_count=$(grep -c "CRITICAL" "$OUTPUT_DIR/$markdown_file" 2>/dev/null || echo 0)
+  if [ -f "$markdown_file" ]; then
+    high_count=$(grep -c "HIGH" "$markdown_file" 2>/dev/null || echo 0)
+    critical_count=$(grep -c "CRITICAL" "$markdown_file" 2>/dev/null || echo 0)
     total=$((high_count + critical_count))
 
     if [ "$total" -gt 0 ]; then
       echo "WARNING: $service_name - $total HIGH/CRITICAL alerts found!" | tee -a "$SUMMARY_FILE"
-      grep -E "HIGH|CRITICAL" "$OUTPUT_DIR/$markdown_file" | head -10 | tee -a "$SUMMARY_FILE"
+      grep -E "HIGH|CRITICAL" "$markdown_file" | head -10 | tee -a "$SUMMARY_FILE"
       FAILURES=$((FAILURES + 1))
     else
       echo "PASS: $service_name - no HIGH/CRITICAL alerts" | tee -a "$SUMMARY_FILE"
