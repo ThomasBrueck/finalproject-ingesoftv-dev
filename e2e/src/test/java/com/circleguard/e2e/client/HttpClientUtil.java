@@ -59,6 +59,7 @@ public class HttpClientUtil {
     private static JsonNode execute(Request request) {
         try (Response response = client.newCall(request).execute()) {
             String responseBody = response.body() != null ? response.body().string() : "{}";
+            if (responseBody.isBlank()) responseBody = "{}";
             JsonNode node = mapper.readTree(responseBody);
             if (node instanceof com.fasterxml.jackson.databind.node.ObjectNode) {
                 ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("_status", response.code());

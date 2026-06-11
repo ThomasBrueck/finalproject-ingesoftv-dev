@@ -47,7 +47,6 @@ public class PromotionServiceClient {
 
     public JsonNode reportEncounter(String userA, String userB, String location) {
         return HttpClientUtil.post(baseUrl + "/api/v1/encounters/report",
-                Map.of("userA", userA, "userB", userB, "location", location, "timestamp",
-                        java.time.Instant.now().toString()), null);
+                Map.of("sourceId", userA, "targetId", userB, "locationId", location), null);
     }
 }

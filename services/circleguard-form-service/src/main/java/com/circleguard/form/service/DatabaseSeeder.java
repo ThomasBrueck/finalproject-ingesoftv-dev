@@ -8,10 +8,12 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import java.util.List;
 
 @Configuration
+@Lazy(false)
 @RequiredArgsConstructor
 @Slf4j
 @Profile("!test")
