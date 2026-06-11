@@ -16,7 +16,7 @@ on:
 
 jobs:
   pipeline:
-    uses: ThomasBrueck/finalproject-ingesoftv-ops/.github/workflows/_cicd-pipeline.yml@master
+    uses: ThomasBrueck/finalproject-ingesoftv-ops/.github/workflows/_cicd-pipeline.yml@fix/test-ports-pipeline
     with:
       service-name: circleguard-notification-service
       dev-branch: ${{ inputs.dev-branch || github.head_ref || 'master' }}

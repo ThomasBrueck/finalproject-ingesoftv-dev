@@ -45,6 +45,9 @@ subprojects {
         "implementation"("org.jetbrains.kotlin:kotlin-reflect")
         "testImplementation"("org.springframework.boot:spring-boot-starter-test")
         "testRuntimeOnly"("com.h2database:h2")
+        "testImplementation"("org.testcontainers:junit-jupiter:1.20.1")
+        "testImplementation"("org.testcontainers:postgresql:1.20.1")
+        "testImplementation"("org.testcontainers:kafka:1.20.1")
     }
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -55,8 +58,19 @@ subprojects {
     }
 
     tasks.withType<Test> {
-        useJUnitPlatform()
+        useJUnitPlatform {
+            excludeTags("integration")
+        }
         finalizedBy(tasks.named("jacocoTestReport"))
+        exclude("com.circleguard.e2e.**")
+    }
+
+    tasks.register<Test>("integrationTest") {
+        useJUnitPlatform {
+            includeTags("integration")
+        }
+        // Don't inherit the e2e exclude from parent
+        excludes.clear()
     }
 
     tasks.named<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {

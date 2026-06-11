@@ -10,7 +10,7 @@ SUMMARY_FILE="$OUTPUT_DIR/zap-summary.txt"
 FAILURES=0
 
 SCAN_TARGETS=(
-  "gateway-service:http://localhost:8083"
+  "gateway-service:http://localhost:8087"
   "auth-service:http://localhost:8180"
   "form-service:http://localhost:8086"
   "identity-service:http://localhost:8083"
