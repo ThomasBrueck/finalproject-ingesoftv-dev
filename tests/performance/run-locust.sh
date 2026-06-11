@@ -86,13 +86,13 @@ run_locust() {
 }
 
 # Run 4 parallel Locust processes, one per service
-run_locust "gateway-service" "8083" "$USERS_PER_SERVICE" &
+run_locust "gateway-service" "8087" "$USERS_PER_SERVICE" &
 PID1=$!
-run_locust "form-service" "8082" "$USERS_PER_SERVICE" &
+run_locust "form-service" "8086" "$USERS_PER_SERVICE" &
 PID2=$!
-run_locust "dashboard-service" "8085" "$USERS_PER_SERVICE" &
+run_locust "dashboard-service" "8084" "$USERS_PER_SERVICE" &
 PID3=$!
-run_locust "identity-service" "8084" "$USERS_PER_SERVICE" &
+run_locust "identity-service" "8083" "$USERS_PER_SERVICE" &
 PID4=$!
 
 # Wait for all and collect exit codes
