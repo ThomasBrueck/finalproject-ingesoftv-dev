@@ -16,6 +16,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Lazy(false)
 public class HealthSurveyService {
     private final HealthSurveyRepository repository;
     private final QuestionnaireService questionnaireService;
@@ -25,6 +26,13 @@ public class HealthSurveyService {
 
     private static final String TOPIC_SURVEY_SUBMITTED = "survey.submitted";
     private static final String TOPIC_CERTIFICATE_VALIDATED = "certificate.validated";
+
+    // El counter solo aparece en /actuator/prometheus tras el primer increment;
+    // se registra al arranque para que la métrica exista desde el primer scrape.
+    @jakarta.annotation.PostConstruct
+    void initMetrics() {
+        meterRegistry.counter("circleguard_form_symptomatic_surveys_total");
+    }
 
     @Transactional
     public HealthSurvey submitSurvey(HealthSurvey survey) {

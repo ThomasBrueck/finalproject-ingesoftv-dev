@@ -102,11 +102,11 @@ class ObservabilityE2ETest extends E2ETestBase {
 
     @Test
     void obs03_businessMetricsPresentInInstrumentedServices() {
-        // auth-service: contadores de login
+        // auth-service: contadores de login (circleguard_auth_login_success_total)
         String authBody = obs.fetchActuatorPrometheus(authServiceUrl);
-        assertTrue(authBody.contains("circleguard_login_success_total") ||
+        assertTrue(authBody.contains("circleguard_auth_login") ||
                    authBody.contains("circleguard_login"),
-                "auth-service: métrica de negocio 'circleguard_login' no encontrada");
+                "auth-service: métrica de negocio 'circleguard_auth_login' no encontrada");
         System.out.println("[OK] auth-service — métricas de login presentes");
 
         // gateway-service: escaneos QR
@@ -116,11 +116,11 @@ class ObservabilityE2ETest extends E2ETestBase {
                 "gateway-service: métrica de negocio 'circleguard_qr' no encontrada");
         System.out.println("[OK] gateway-service — métricas QR presentes");
 
-        // form-service: encuestas sintomáticas
+        // form-service: encuestas sintomáticas (circleguard_form_symptomatic_surveys_total)
         String formBody = obs.fetchActuatorPrometheus(formServiceUrl);
-        assertTrue(formBody.contains("circleguard_survey") ||
-                   formBody.contains("health_survey"),
-                "form-service: métrica de negocio 'circleguard_survey' no encontrada");
+        assertTrue(formBody.contains("circleguard_form_symptomatic") ||
+                   formBody.contains("circleguard_survey"),
+                "form-service: métrica de negocio 'circleguard_form_symptomatic' no encontrada");
         System.out.println("[OK] form-service — métricas de encuestas presentes");
 
         // promotion-service: cuarentenas

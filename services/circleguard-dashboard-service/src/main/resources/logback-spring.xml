@@ -11,7 +11,10 @@
 
     <springProfile name="staging,production">
         <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-            <destination>${LOGSTASH_HOST:-logstash.stage.svc.cluster.local}:${LOGSTASH_PORT:-5000}</destination>
+            <!-- LOGSTASH_DESTINATION (host:puerto). No usar LOGSTASH_HOST/LOGSTASH_PORT:
+             Kubernetes inyecta el service-link LOGSTASH_PORT=tcp://<ip>:5000 del
+             Service "logstash" y el puerto queda imparseable (crash al boot). -->
+            <destination>${LOGSTASH_DESTINATION:-logstash.stage.svc.cluster.local:5000}</destination>
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
                 <customFields>{"app":"${appName}"}</customFields>
             </encoder>

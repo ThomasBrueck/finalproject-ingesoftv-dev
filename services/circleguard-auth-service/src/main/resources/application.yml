@@ -24,7 +24,10 @@ jwt:
 
 qr:
   secret: "my-qr-secret-key-for-dev-1234567890"
-  expiration: 300
+  # En milisegundos: QrTokenService hace currentTimeMillis() + expiration.
+  # Con 300 el QR expiraba en el mismo segundo de su emisión (iat == exp)
+  # y el gateway lo rechazaba siempre con "Invalid or Expired Token".
+  expiration: 300000
 
 server:
   port: 8180

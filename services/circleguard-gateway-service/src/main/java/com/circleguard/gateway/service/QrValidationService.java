@@ -13,6 +13,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@org.springframework.context.annotation.Lazy(false)
 public class QrValidationService {
     private final StringRedisTemplate redisTemplate;
     private final MeterRegistry meterRegistry;
@@ -21,6 +22,15 @@ public class QrValidationService {
     private String qrSecret;
 
     private static final String STATUS_KEY_PREFIX = "user:status:";
+
+    // Pre-registra ambas variantes del counter para que la métrica de negocio
+    // exista en /actuator/prometheus desde el arranque (no solo tras el primer
+    // escaneo). @Lazy(false) anula el lazy-init global del pod.
+    @jakarta.annotation.PostConstruct
+    void initMetrics() {
+        meterRegistry.counter("circleguard_gateway_qr_scans_total", "status", "valid");
+        meterRegistry.counter("circleguard_gateway_qr_scans_total", "status", "invalid");
+    }
 
     public ValidationResult validateToken(String token) {
         try {

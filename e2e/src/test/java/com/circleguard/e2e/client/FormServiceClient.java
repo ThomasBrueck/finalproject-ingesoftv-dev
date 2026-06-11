@@ -31,7 +31,10 @@ public class FormServiceClient {
     }
 
     public JsonNode validateCertificate(String certificateId, String jwt) {
-        return HttpClientUtil.post(baseUrl + "/api/v1/certificates/" + certificateId + "/validate",
-                Map.of("valid", true, "notes", "Validated by E2E test"), jwt);
+        // CertificateValidationController recibe query params (@RequestParam
+        // status/adminId), no body JSON: con body el endpoint responde 400.
+        return HttpClientUtil.post(baseUrl + "/api/v1/certificates/" + certificateId
+                        + "/validate?status=APPROVED&adminId=" + UUID.randomUUID(),
+                null, jwt);
     }
 }
