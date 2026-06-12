@@ -12,6 +12,13 @@ sonarqube {
         property("sonar.projectKey", "ThomasBrueck_finalproject-ingesoftv-dev")
         property("sonar.organization", "ThomasBrueck")
         property("sonar.host.url", "https://sonarcloud.io")
+        // Misma política de cobertura que jacocoTestCoverageVerification:
+        // modelos/DTOs/config/eventos no llevan lógica y están fuera del
+        // reporte JaCoCo, así que Sonar los contaba como 0% cubiertos.
+        property(
+            "sonar.coverage.exclusions",
+            "**/*Application*.java,**/model/**,**/dto/**,**/config/**,**/exception/**,**/event/**"
+        )
     }
 }
 

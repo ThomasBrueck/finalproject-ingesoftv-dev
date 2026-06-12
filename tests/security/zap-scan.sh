@@ -29,7 +29,9 @@ echo "" | tee -a "$SUMMARY_FILE"
 
 for target in "${SCAN_TARGETS[@]}"; do
   service_name="${target%%:*}"
-  service_url="${target##*:}"
+  # Primer ':' separa nombre de URL; con ##*: quedaba solo el puerto ("8087")
+  # y zap-full-scan rechazaba el target con usage error (exit 3).
+  service_url="${target#*:}"
   report_file="$OUTPUT_DIR/zap-report-${service_name}.html"
   markdown_file="$OUTPUT_DIR/zap-report-${service_name}.md"
 
@@ -45,10 +47,9 @@ for target in "${SCAN_TARGETS[@]}"; do
     -r "zap-report-${service_name}.html" \
     -w "zap-report-${service_name}.md" \
     -I \
-    -z "-config globalexcludeurl.url_list.url\(0\).regex='.*/actuator/health.*'" \
-    -z "-config rules.cookie.ignorelist=.*" \
+    -z "-config globalexcludeurl.url_list.url(0).regex='.*/actuator/health.*' -config rules.cookie.ignorelist=.*" \
     -T 5 \
-    2>&1 | tail -5
+    2>&1 | tail -5 || echo "WARN: scan de $service_name salió con error; se continúa con el siguiente" | tee -a "$SUMMARY_FILE"
 
   # Check for HIGH/CRITICAL alerts
   if [ -f "$markdown_file" ]; then
