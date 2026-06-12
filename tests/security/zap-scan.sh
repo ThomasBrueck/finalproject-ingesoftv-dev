@@ -21,6 +21,7 @@ SCAN_TARGETS=(
 )
 
 mkdir -p "$OUTPUT_DIR"
+chmod 777 "$OUTPUT_DIR"
 
 echo "=== OWASP ZAP DAST Scan ===" | tee "$SUMMARY_FILE"
 echo "Targets: ${#SCAN_TARGETS[@]} services" | tee -a "$SUMMARY_FILE"
