@@ -38,7 +38,15 @@ for target in "${SCAN_TARGETS[@]}"; do
 
   echo "Scanning $service_name ($service_url)..." | tee -a "$SUMMARY_FILE"
 
-  # Run ZAP API scan with full spider + active scan
+  # ZAP corre como uid 1000 dentro del contenedor; el volumen montado debe ser
+  # escribible para que pueda dejar los reportes (si no, no se genera el .md y
+  # el análisis queda vacío).
+  chmod -R 777 "$OUTPUT_DIR" 2>/dev/null || true
+
+  # zap-full-scan.py: spider + escaneo activo. -I = informativo (no aborta el
+  # contenedor por warnings). Capturamos el código de salida sin que set -e mate
+  # el script (las reglas en estado WARN/FAIL hacen exit 1/2, que es esperado).
+  scan_rc=0
   docker run --rm \
     --network host \
     -v "$(pwd)/$OUTPUT_DIR:/zap/wrk" \
@@ -50,26 +58,36 @@ for target in "${SCAN_TARGETS[@]}"; do
     -I \
     -z "-config globalexcludeurl.url_list.url(0).regex='.*/actuator/health.*' -config rules.cookie.ignorelist=.*" \
     -T 5 \
-    2>&1 | tail -5 || echo "WARN: scan de $service_name salió con error; se continúa con el siguiente" | tee -a "$SUMMARY_FILE"
+    > "$OUTPUT_DIR/zap-${service_name}.log" 2>&1 || scan_rc=$?
 
-  # Check for HIGH/CRITICAL alerts
-  if [ -f "$markdown_file" ]; then
-    high_count=$(grep -c "HIGH" "$markdown_file" 2>/dev/null || echo 0)
-    critical_count=$(grep -c "CRITICAL" "$markdown_file" 2>/dev/null || echo 0)
-    total=$((high_count + critical_count))
+  if [ ! -f "$markdown_file" ]; then
+    echo "ERROR: $service_name - no se generó el reporte (rc=$scan_rc). Ver zap-${service_name}.log" | tee -a "$SUMMARY_FILE"
+    FAILURES=$((FAILURES + 1))
+    echo "" | tee -a "$SUMMARY_FILE"
+    continue
+  fi
 
-    if [ "$total" -gt 0 ]; then
-      echo "WARNING: $service_name - $total HIGH/CRITICAL alerts found!" | tee -a "$SUMMARY_FILE"
-      grep -E "HIGH|CRITICAL" "$markdown_file" | head -10 | tee -a "$SUMMARY_FILE"
-      FAILURES=$((FAILURES + 1))
-    else
-      echo "PASS: $service_name - no HIGH/CRITICAL alerts" | tee -a "$SUMMARY_FILE"
-    fi
+  # Conteo de alertas por nivel desde la tabla "Summary of Alerts" del reporte
+  # markdown de ZAP (filas tipo "| High | N |"). Se extrae el primer entero de
+  # cada fila; si no aparece, se asume 0. Evita el bug de 'grep -c || echo 0'
+  # (que producía "0\n0" y rompía la aritmética con set -e).
+  level_count() { grep -iE "^\| *$1 *\|" "$markdown_file" | grep -oE '[0-9]+' | head -1; }
+  high_count=$(level_count "High"); high_count=${high_count:-0}
+  medium_count=$(level_count "Medium"); medium_count=${medium_count:-0}
+  low_count=$(level_count "Low"); low_count=${low_count:-0}
+
+  echo "  Alertas → High: $high_count | Medium: $medium_count | Low: $low_count" | tee -a "$SUMMARY_FILE"
+
+  if [ "$high_count" -gt 0 ]; then
+    echo "WARNING: $service_name - $high_count alerta(s) HIGH encontradas" | tee -a "$SUMMARY_FILE"
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "PASS: $service_name - sin alertas HIGH" | tee -a "$SUMMARY_FILE"
   fi
   echo "" | tee -a "$SUMMARY_FILE"
 done
 
 echo "========================================" | tee -a "$SUMMARY_FILE"
-echo "Services with HIGH/CRITICAL findings: $FAILURES" | tee -a "$SUMMARY_FILE"
+echo "Servicios con alertas HIGH (o sin reporte): $FAILURES de ${#SCAN_TARGETS[@]}" | tee -a "$SUMMARY_FILE"
 
 exit "$FAILURES"
