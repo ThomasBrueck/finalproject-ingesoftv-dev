@@ -43,6 +43,29 @@ for target in "${SCAN_TARGETS[@]}"; do
   # el análisis queda vacío).
   chmod -R 777 "$OUTPUT_DIR" 2>/dev/null || true
 
+  # Resiliencia de port-forward: los full-scan son largos y, al escanear 8
+  # servicios en serie, el túnel kubectl de los últimos (dashboard/file) queda
+  # ocioso varios minutos y se cae → ZAP no alcanza el target y sale con rc=3.
+  # Si el target no responde la conexión y hay kubectl (CI), reiniciamos su
+  # port-forward y esperamos a que vuelva a estar disponible.
+  port="${service_url##*:}"
+  k8s_svc="circleguard-${service_name}"
+  ns="${ZAP_NAMESPACE:-stage}"
+  if ! curl -s -o /dev/null --max-time 5 "http://localhost:${port}/actuator/health" 2>/dev/null; then
+    if command -v kubectl >/dev/null 2>&1; then
+      echo "  target no alcanzable, reiniciando port-forward de ${k8s_svc}..." | tee -a "$SUMMARY_FILE"
+      pkill -f "port-forward -n ${ns} service/${k8s_svc} " 2>/dev/null || true
+      sleep 1
+      kubectl port-forward -n "${ns}" "service/${k8s_svc}" "${port}:80" >"/tmp/zap-pf-${service_name}.log" 2>&1 &
+    fi
+  fi
+  # Espera hasta 60s a que el target responda 200 antes de escanear.
+  for _ in $(seq 1 20); do
+    rc_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:${port}/actuator/health" 2>/dev/null || echo 000)
+    [ "$rc_code" = "200" ] && break
+    sleep 3
+  done
+
   # zap-full-scan.py: spider + escaneo activo. -I = informativo (no aborta el
   # contenedor por warnings). Capturamos el código de salida sin que set -e mate
   # el script (las reglas en estado WARN/FAIL hacen exit 1/2, que es esperado).
