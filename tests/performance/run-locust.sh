@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCENARIO="${1:-medium}"
-REPORT_DIR="build/reports/performance"
+REPORT_DIR="$(pwd)/build/reports/performance"
 FAILURES=0
 
 case "$SCENARIO" in
