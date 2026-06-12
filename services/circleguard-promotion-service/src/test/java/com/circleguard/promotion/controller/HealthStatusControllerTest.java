@@ -71,4 +71,52 @@ class HealthStatusControllerTest {
                         .content(json))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(roles = "HEALTH_CENTER")
+    void reportStatus_WithoutOverride_DefaultsToFalse() throws Exception {
+        String json = "{\"anonymousId\": \"user-2\", \"status\": \"SUSPECT\"}";
+
+        mockMvc.perform(post("/api/v1/health/report")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk());
+
+        verify(statusService).updateStatus("user-2", "SUSPECT", false);
+    }
+
+    @Test
+    @WithMockUser(roles = "HEALTH_CENTER")
+    void reportStatus_WithAdminOverride_PassesTrue() throws Exception {
+        String json = "{\"anonymousId\": \"user-3\", \"status\": \"ACTIVE\", \"adminOverride\": true}";
+
+        mockMvc.perform(post("/api/v1/health/report")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk());
+
+        verify(statusService).updateStatus("user-3", "ACTIVE", true);
+    }
+
+    @Test
+    @WithMockUser(roles = "HEALTH_CENTER")
+    void recover_WithPermission_PromotesToRecovered() throws Exception {
+        mockMvc.perform(post("/api/v1/health/recovery/user-4"))
+                .andExpect(status().isOk());
+
+        verify(statusService).promoteToRecovered("user-4");
+    }
+
+    @Test
+    @WithMockUser(roles = "HEALTH_CENTER")
+    void resolve_WithAdminOverride_PassesTrue() throws Exception {
+        String json = "{\"anonymousId\": \"user-5\", \"adminOverride\": true}";
+
+        mockMvc.perform(post("/api/v1/health/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk());
+
+        verify(statusService).resolveStatus("user-5", true);
+    }
 }

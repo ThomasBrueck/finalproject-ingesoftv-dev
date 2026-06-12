@@ -50,6 +50,39 @@ class PushServiceImplTest {
     }
 
     @Test
+    void shouldSendRealPushWhenTokenConfigured() {
+        var exchange = (org.springframework.web.reactive.function.client.ExchangeFunction) request ->
+                reactor.core.publisher.Mono.just(
+                        org.springframework.web.reactive.function.client.ClientResponse
+                                .create(org.springframework.http.HttpStatus.OK).build());
+        PushServiceImpl realService = new PushServiceImpl(
+                WebClient.builder().exchangeFunction(exchange), "http://gotify.test");
+        ReflectionTestUtils.setField(realService, "auditLogService", auditLogService);
+        ReflectionTestUtils.setField(realService, "gotifyToken", "token-real");
+
+        realService.sendAsync("user-9", "Alerta", Map.of("url", "circleguard://x"));
+
+        verify(auditLogService).logDelivery(eq("user-9"), eq("PUSH"), eq("SUCCESS"), any());
+    }
+
+    @Test
+    void shouldLogRetryAndRethrowOnHttpError() {
+        var exchange = (org.springframework.web.reactive.function.client.ExchangeFunction) request ->
+                reactor.core.publisher.Mono.just(
+                        org.springframework.web.reactive.function.client.ClientResponse
+                                .create(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build());
+        PushServiceImpl realService = new PushServiceImpl(
+                WebClient.builder().exchangeFunction(exchange), "http://gotify.test");
+        ReflectionTestUtils.setField(realService, "auditLogService", auditLogService);
+        ReflectionTestUtils.setField(realService, "gotifyToken", "token-real");
+
+        org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
+                () -> realService.sendAsync("user-9", "Alerta", Map.of()));
+
+        verify(auditLogService).logDelivery(eq("user-9"), eq("PUSH"), eq("RETRY"), any());
+    }
+
+    @Test
     void shouldLogFailedOnRecover() {
         Exception ex = new RuntimeException("Push fail");
         var result = pushService.recover(ex, "user-123", "msg", Map.of());

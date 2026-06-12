@@ -56,4 +56,47 @@ class TemplateServiceTest {
         assertThat(result).contains("CircleGuard Health Update");
         assertThat(result).contains("SUSPECT");
     }
+
+    @Test
+    void shouldDefaultUserNameAndStatusWhenNull() throws Exception {
+        ReflectionTestUtils.setField(templateService, "testingUrl", "https://example.com/testing");
+        ReflectionTestUtils.setField(templateService, "isolationUrl", "https://example.com/isolation");
+
+        Template template = mock(Template.class);
+        when(freemarkerConfig.getTemplate("health_alert.ftl")).thenReturn(template);
+        doAnswer(invocation -> {
+            Writer out = invocation.getArgument(1);
+            out.write("ok");
+            return null;
+        }).when(template).process(any(), any(Writer.class));
+
+        assertThat(templateService.generateEmailContent(null, null)).isEqualTo("ok");
+    }
+
+    @Test
+    void shouldGeneratePushContentPerStatus() {
+        assertThat(templateService.generatePushContent("SUSPECT"))
+                .contains("SUSPECT").contains("isolation");
+        assertThat(templateService.generatePushContent("PROBABLE"))
+                .contains("PROBABLE").contains("exposure");
+        assertThat(templateService.generatePushContent("ACTIVE"))
+                .contains("updated to ACTIVE");
+    }
+
+    @Test
+    void shouldGeneratePushMetadataOnlyForRiskStatuses() {
+        ReflectionTestUtils.setField(templateService, "guidelinesDeepLink", "circleguard://guidelines");
+
+        assertThat(templateService.generatePushMetadata("SUSPECT"))
+                .containsEntry("url", "circleguard://guidelines");
+        assertThat(templateService.generatePushMetadata("PROBABLE"))
+                .containsEntry("url", "circleguard://guidelines");
+        assertThat(templateService.generatePushMetadata("ACTIVE")).isEmpty();
+    }
+
+    @Test
+    void shouldGenerateSmsContent() {
+        assertThat(templateService.generateSmsContent("CONFIRMED"))
+                .contains("CONFIRMED").contains("CircleGuard Alert");
+    }
 }
